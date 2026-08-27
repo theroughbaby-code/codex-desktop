@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.7 - 2026-08-27
+
+- Removed the separate ChatGPT and Codex mode-switch actions because the UI Automation approach was not reliable in Options+ testing.
+- Checked current local app integration points: no registered ChatGPT/OpenAI/Codex URL protocol was available on this machine.
+- Checked Codex CLI surfaces: `codex app` only launches the desktop app, and `remote-control`/`app-server` target Codex agent/session control rather than desktop ChatGPT/Codex navigation.
+- Kept the plugin to the reliable Open Codex action until a supported app API or stable deep link for desktop mode navigation exists.
+
 ## 1.0.6 - 2026-08-27
 
 - Reworked the plugin icon from black-on-transparent to off-white-on-transparent so it remains visible in Options+ dark mode.
