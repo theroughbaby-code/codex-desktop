@@ -1,6 +1,8 @@
 import { PluginSDK } from '@logitech/plugin-sdk';
+import { OpenCodexDesktopAction } from './src/actions/open-codex-desktop';
 
 const pluginSDK = new PluginSDK();
 
-// Actions are registered in Step 2 after the base plugin scaffold builds cleanly.
+pluginSDK.registerAction(new OpenCodexDesktopAction());
+
 await pluginSDK.connect();

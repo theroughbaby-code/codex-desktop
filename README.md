@@ -6,15 +6,29 @@ Logi Options+ plugin for controlling ChatGPT/Codex Desktop on Windows from an MX
 
 ## Status
 
-Step 1 scaffold is intentionally minimal. It defines the Logi Node.js plugin package, metadata, build scripts, and asset folders. Step 2 will add the first testable action: opening ChatGPT/Codex Desktop.
+Step 2 adds the first testable action: opening ChatGPT/Codex Desktop from the MX Creative Console Keypad.
 
 ## Package
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.0.0
+- Version: 1.0.1
 - Runtime: Node.js plugin through Logi Plugin Service
 - Target device: MX Creative Console Keypad through Logi Options+
+
+## Actions
+
+| Action | Description |
+| --- | --- |
+| Open Codex | Finds `codex.exe` and runs `codex app`. |
+
+## Codex Discovery
+
+The plugin checks for Codex in this order:
+
+1. `CODEX_CLI` environment variable, when set to a full `codex.exe` path.
+2. `codex.exe` on `PATH`.
+3. `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, choosing the newest executable.
 
 ## Development
 
@@ -28,6 +42,12 @@ Type-check:
 
 ```powershell
 npm run typecheck
+```
+
+Verify Codex Desktop discovery:
+
+```powershell
+npm run doctor
 ```
 
 Build:

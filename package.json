@@ -1,6 +1,6 @@
 {
   "name": "codex-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && tsup",
     "build:pack": "tsc --noEmit && cross-env NODE_ENV=production tsup && logitoolkit pack",
     "build:prod": "tsc --noEmit && cross-env NODE_ENV=production tsup",
+    "doctor": "node scripts/doctor.mjs",
     "link": "logitoolkit link",
     "pack": "logitoolkit pack",
     "typecheck": "tsc --noEmit",

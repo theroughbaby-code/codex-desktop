@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 - 2026-08-27
+
+- Added the first Logitech command action: Open Codex.
+- Added Windows Codex CLI discovery before launching the desktop app.
+- Added action icon and action symbol assets for the Open Codex action.
+
 ## 1.0.0 - 2026-08-27
 
 - Created the initial Logi Options+ Node.js plugin scaffold for Codex Desktop.
