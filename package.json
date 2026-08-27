@@ -1,0 +1,41 @@
+{
+  "name": "codex-desktop",
+  "version": "1.0.0",
+  "description": "Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "scripts": {
+    "build": "tsc --noEmit && tsup",
+    "build:pack": "tsc --noEmit && cross-env NODE_ENV=production tsup && logitoolkit pack",
+    "build:prod": "tsc --noEmit && cross-env NODE_ENV=production tsup",
+    "link": "logitoolkit link",
+    "pack": "logitoolkit pack",
+    "typecheck": "tsc --noEmit",
+    "unlink": "logitoolkit unlink",
+    "version:bump-patch": "node scripts/bump-patch-version.mjs",
+    "watch": "tsc --noEmit && tsup --watch"
+  },
+  "keywords": [
+    "logitech",
+    "logi-options-plus",
+    "mx-creative-console",
+    "codex",
+    "chatgpt"
+  ],
+  "author": "TheRoughBaby",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@logitech/plugin-sdk": "0.1.1"
+  },
+  "devDependencies": {
+    "@logitech/plugin-toolkit": "0.1.1",
+    "@types/node": "^22.18.8",
+    "cross-env": "^7.0.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "yaml": "^2.8.1"
+  }
+}

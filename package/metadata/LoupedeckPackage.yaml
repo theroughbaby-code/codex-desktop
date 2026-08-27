@@ -1,0 +1,12 @@
+type: plugin4
+name: CodexDesktop
+version: 1.0.0
+displayName: Codex Desktop
+description: Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.
+minimumLoupedeckVersion: 6.1
+
+pluginType: remote
+pluginRuntime: nodejs
+entryPoint: index.mjs
+
+pluginCapabilities:
