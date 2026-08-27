@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4 - 2026-08-27
+
+- Added Switch to ChatGPT and Switch to Codex actions for the desktop app's top-left mode switcher.
+- Added a packaged Windows UI Automation helper for ChatGPT/Codex mode switching.
+- Replaced the plugin icon with OpenAI's official black monoblossom asset from the 2025 logo package.
+- Added distinct action icons and action symbols for ChatGPT and Codex switching.
+
 ## 1.0.3 - 2026-08-27
 
 - Removed placeholder files from generated package folders before packing.

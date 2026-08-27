@@ -12,7 +12,7 @@ Step 2 adds the first testable action: opening ChatGPT/Codex Desktop from the MX
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.0.3
+- Version: 1.0.4
 - Runtime: Node.js plugin through Logi Plugin Service
 - Target device: MX Creative Console Keypad through Logi Options+
 
@@ -21,6 +21,8 @@ Step 2 adds the first testable action: opening ChatGPT/Codex Desktop from the MX
 | Action | Description |
 | --- | --- |
 | Open Codex | Finds `codex.exe` and runs `codex app`. |
+| ChatGPT | Opens/focuses the desktop app and switches to ChatGPT mode. |
+| Codex | Opens/focuses the desktop app and switches to Codex mode. |
 
 ## Codex Discovery
 
@@ -29,6 +31,21 @@ The plugin checks for Codex in this order:
 1. `CODEX_CLI` environment variable, when set to a full `codex.exe` path.
 2. `codex.exe` on `PATH`.
 3. `%LOCALAPPDATA%\OpenAI\Codex\bin\*\codex.exe`, choosing the newest executable.
+
+## Desktop Mode Switching
+
+The ChatGPT/Codex switch actions use a packaged Windows UI Automation script:
+
+```powershell
+dist\scripts\switch-chatgpt-codex.ps1 -Mode ChatGPT
+dist\scripts\switch-chatgpt-codex.ps1 -Mode Codex
+```
+
+OpenAI's current desktop documentation describes ChatGPT and Codex as selectable from the top-left menu. No public desktop-app API for changing that mode is documented, so these actions use the accessible Windows UI tree.
+
+## Brand Assets
+
+The plugin icon uses `OpenAI-black-monoblossom.png` from OpenAI's official 2025 logo package. OpenAI owns the OpenAI and ChatGPT marks; this plugin uses the mark to identify the service it controls and should not imply endorsement.
 
 ## Development
 
