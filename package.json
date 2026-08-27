@@ -1,12 +1,12 @@
 {
   "name": "codex-desktop",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.",
   "type": "module",
   "main": "./dist/index.mjs",
   "scripts": {
     "build": "tsc --noEmit && tsup && node scripts/remove-dist-placeholders.mjs",
-    "build:pack": "tsc --noEmit && cross-env NODE_ENV=production tsup && node scripts/remove-dist-placeholders.mjs && logitoolkit pack && node scripts/check-no-pluginapi-dll.mjs",
+    "build:pack": "tsc --noEmit && cross-env NODE_ENV=production tsup && node scripts/remove-dist-placeholders.mjs && logitoolkit pack && node scripts/prepare-package-artifact.mjs && node scripts/verify-standalone-package.mjs",
     "build:prod": "tsc --noEmit && cross-env NODE_ENV=production tsup && node scripts/remove-dist-placeholders.mjs",
     "doctor": "node scripts/doctor.mjs",
     "link": "logitoolkit link",
@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "unlink": "logitoolkit unlink",
     "verify:no-pluginapi-dll": "node scripts/check-no-pluginapi-dll.mjs",
+    "verify:package": "node scripts/verify-standalone-package.mjs",
     "version:bump-patch": "node scripts/bump-patch-version.mjs",
     "watch": "tsc --noEmit && tsup --watch"
   },

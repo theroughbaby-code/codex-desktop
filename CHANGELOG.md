@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.5 - 2026-08-27
+
+- Diagnosed the failed installed-package test from Logi Plugin Service logs.
+- Found that the installer command returned success, but Options+ invoked a stale action while `CodexDesktop` was still installed as a development junction to the local `dist` folder.
+- Changed package builds to rename `CodexDesktop.lplug4` into a versioned artifact such as `CodexDesktop-1.0.5.lplug4`.
+- Added standalone package verification that fails if generated assets or `.lplug4` archives contain `pluginapi.dll`, the local project path, or the public GitHub repository link.
+- Kept the public README brief and moved detailed release notes here.
+
 ## 1.0.4 - 2026-08-27
 
 - Added Switch to ChatGPT and Switch to Codex actions for the desktop app's top-left mode switcher.
