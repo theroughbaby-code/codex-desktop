@@ -12,7 +12,7 @@ Step 2 adds the first testable action: opening ChatGPT/Codex Desktop from the MX
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.0.1
+- Version: 1.0.3
 - Runtime: Node.js plugin through Logi Plugin Service
 - Target device: MX Creative Console Keypad through Logi Options+
 
@@ -66,6 +66,12 @@ Package as `.lplug4`:
 
 ```powershell
 npm run build:pack
+```
+
+Verify that `pluginapi.dll` is absent from plugin assets and generated packages:
+
+```powershell
+npm run verify:no-pluginapi-dll
 ```
 
 ## Versioning

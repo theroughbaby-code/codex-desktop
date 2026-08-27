@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.3 - 2026-08-27
+
+- Removed placeholder files from generated package folders before packing.
+
+## 1.0.2 - 2026-08-27
+
+- Added packaging verification that fails if `pluginapi.dll` is found in `package`, `dist`, or the generated `.lplug4`.
+- Wired the `pluginapi.dll` guard into `npm run build:pack`.
+
 ## 1.0.1 - 2026-08-27
 
 - Added the first Logitech command action: Open Codex.
