@@ -1,5 +1,7 @@
 # Codex Desktop
 
+Codex Desktop plugin for Logitech MX Keypad.
+
 Logi Options+ plugin for controlling ChatGPT/Codex Desktop on Windows from an MX Creative Console Keypad.
 
 ## Status
