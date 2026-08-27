@@ -1,6 +1,6 @@
 {
   "name": "codex-desktop",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.",
   "type": "module",
   "main": "./dist/index.mjs",

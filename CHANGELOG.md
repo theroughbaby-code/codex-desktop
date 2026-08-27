@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.8 - 2026-08-27
+
+- Added Companion, Search, and Browser actions using documented ChatGPT Desktop keyboard shortcuts.
+- Added a packaged PowerShell shortcut helper that opens/focuses ChatGPT/Codex Desktop before sending focus-dependent shortcuts.
+- Kept ChatGPT/Codex mode switching out because no supported desktop mode-switch API, URL protocol, or CLI command was found.
+- Added dark-mode action icons and action symbols for the new actions.
+
 ## 1.0.7 - 2026-08-27
 
 - Removed the separate ChatGPT and Codex mode-switch actions because the UI Automation approach was not reliable in Options+ testing.
