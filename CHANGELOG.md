@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6 - 2026-08-27
+
+- Reworked the plugin icon from black-on-transparent to off-white-on-transparent so it remains visible in Options+ dark mode.
+- Cropped and scaled the OpenAI mark to occupy more of the 256 px icon canvas.
+- Deferred ChatGPT/Codex mode switching changes to step 4, where the plugin should first look for supported app/API routes and only keep a toggle action if it can be made reliable.
+
 ## 1.0.5 - 2026-08-27
 
 - Diagnosed the failed installed-package test from Logi Plugin Service logs.
