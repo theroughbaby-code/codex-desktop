@@ -1,22 +1,20 @@
 {
   "name": "codex-desktop",
-  "version": "1.0.8",
-  "description": "Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.",
+  "version": "1.1.0",
+  "description": "Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.",
   "type": "module",
-  "main": "./dist/index.mjs",
   "scripts": {
-    "build": "tsc --noEmit && tsup && node scripts/remove-dist-placeholders.mjs",
-    "build:pack": "tsc --noEmit && cross-env NODE_ENV=production tsup && node scripts/remove-dist-placeholders.mjs && logitoolkit pack && node scripts/prepare-package-artifact.mjs && node scripts/verify-standalone-package.mjs",
-    "build:prod": "tsc --noEmit && cross-env NODE_ENV=production tsup && node scripts/remove-dist-placeholders.mjs",
+    "build": "node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs",
+    "build:pack": "node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs && node scripts/verify-standalone-package.mjs",
+    "build:prod": "npm run build",
     "doctor": "node scripts/doctor.mjs",
-    "link": "logitoolkit link",
-    "pack": "logitoolkit pack",
-    "typecheck": "tsc --noEmit",
-    "unlink": "logitoolkit unlink",
+    "generate:action-assets": "node scripts/generate-csharp-shortcuts.mjs",
+    "generate:profile": "node scripts/generate-default-profile.mjs",
+    "pack": "npm run build:pack",
+    "typecheck": "node scripts/generate-csharp-shortcuts.mjs && node scripts/compile-csharp-plugin.mjs",
     "verify:no-pluginapi-dll": "node scripts/check-no-pluginapi-dll.mjs",
     "verify:package": "node scripts/verify-standalone-package.mjs",
-    "version:bump-patch": "node scripts/bump-patch-version.mjs",
-    "watch": "tsc --noEmit && tsup --watch"
+    "version:bump-patch": "node scripts/bump-patch-version.mjs"
   },
   "keywords": [
     "logitech",
@@ -26,19 +24,10 @@
     "chatgpt"
   ],
   "author": "TheRoughBaby",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=22.0.0"
   },
-  "dependencies": {
-    "@logitech/plugin-sdk": "0.1.1"
-  },
-  "devDependencies": {
-    "@logitech/plugin-toolkit": "0.1.1",
-    "@types/node": "^22.18.8",
-    "cross-env": "^7.0.3",
-    "tsup": "^8.5.0",
-    "typescript": "^5.9.3",
-    "yaml": "^2.8.1"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

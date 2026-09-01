@@ -16,16 +16,7 @@ const forbiddenChecks = [
     label: 'local project path',
     needles: [
       workspacePath,
-      workspacePathForward,
-      'c:\\users\\theroughbaby\\desktop\\codex\\codex plugin',
-      'c:/users/theroughbaby/desktop/codex/codex plugin'
-    ]
-  },
-  {
-    label: 'repository link',
-    needles: [
-      'github.com/theroughbaby-code/codex-desktop',
-      'theroughbaby-code/codex-desktop'
+      workspacePathForward
     ]
   }
 ];

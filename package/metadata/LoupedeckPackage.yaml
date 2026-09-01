@@ -1,12 +1,18 @@
 type: plugin4
 name: CodexDesktop
-version: 1.0.8
 displayName: Codex Desktop
-description: Logi Options+ actions for controlling ChatGPT/Codex Desktop on Windows.
-minimumLoupedeckVersion: 6.1
-
-pluginType: remote
-pluginRuntime: nodejs
-entryPoint: index.mjs
-
+description: Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.
+pluginFileName: CodexDesktopPlugin.dll
+version: 1.1.0
+author: TheRoughBaby
+copyright: Copyright 2026 TheRoughBaby. All rights reserved.
+pluginFolderWin: win
+supportedDevices:
+  - MxCreativeKeypad
 pluginCapabilities:
+  - HasApplication
+  - ActivatesApplication
+minimumLoupedeckVersion: 6.1
+license: MIT
+licenseUrl: https://opensource.org/licenses/MIT
+supportPageUrl: https://github.com/theroughbaby-code/codex-desktop/issues
