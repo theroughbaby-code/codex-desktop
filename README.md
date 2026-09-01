@@ -14,8 +14,7 @@
 
 ## Installation
 
-1. Download `CodexDesktop-1.1.0.lplug4`.
-2. Double-click the package and complete installation in Logi Options+.
+1. Find the plugin in Logi marketplace and press install.
 3. Open Codex Desktop. The included nine-action Keypad profile is tied to the ChatGPT/Codex desktop application.
 
 ## Actions
