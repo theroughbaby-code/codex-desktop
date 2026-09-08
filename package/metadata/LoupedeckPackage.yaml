@@ -3,7 +3,7 @@ name: CodexDesktop
 displayName: Codex Desktop
 description: Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.
 pluginFileName: CodexDesktopPlugin.dll
-version: 1.1.0
+version: 1.1.6
 author: TheRoughBaby
 copyright: Copyright 2026 TheRoughBaby. All rights reserved.
 pluginFolderWin: win
@@ -15,4 +15,5 @@ pluginCapabilities:
 minimumLoupedeckVersion: 6.1
 license: MIT
 licenseUrl: https://opensource.org/licenses/MIT
-supportPageUrl: https://github.com/theroughbaby-code/codex-desktop/issues
+homePageUrl: https://github.com/theroughbaby-code/codex-desktop
+supportPageUrl: https://github.com/theroughbaby-code/codex-desktop

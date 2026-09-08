@@ -38,7 +38,6 @@
   { "className": "SettingsCommand", "displayName": "Settings", "shortcutText": "Ctrl+,", "groupName": "App", "key": "Comma", "modifiers": ["Control"] },
   { "className": "CloseTabCommand", "displayName": "Close Tab", "shortcutText": "Ctrl+W", "groupName": "General", "key": "KeyW", "modifiers": ["Control"] },
   { "className": "CloseCommand", "displayName": "Close", "shortcutText": "Ctrl+F4", "groupName": "General", "key": "F4", "modifiers": ["Control"] },
-  { "className": "OpenModelPickerCommand", "displayName": "Open model picker", "shortcutText": "Ctrl+Shift+M", "groupName": "General", "key": "KeyM", "modifiers": ["Control", "Shift"] },
   { "className": "CopyDeeplinkCommand", "displayName": "Copy deeplink", "shortcutText": "Ctrl+Alt+L", "groupName": "General", "key": "KeyL", "modifiers": ["Control", "Alt"] },
   { "className": "CopyWorkingDirectoryCommand", "displayName": "Copy working directory", "shortcutText": "Ctrl+Shift+C", "groupName": "General", "key": "KeyC", "modifiers": ["Control", "Shift"] },
   { "className": "ForceReloadBrowserPageCommand", "displayName": "Force Reload Browser Page", "shortcutText": "Ctrl+Shift+R", "groupName": "General", "key": "KeyR", "modifiers": ["Control", "Shift"] },

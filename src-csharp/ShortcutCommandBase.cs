@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 
 namespace Loupedeck.CodexDesktopPlugin;
 
@@ -16,11 +17,31 @@ public abstract class ShortcutCommandBase : PluginDynamicCommand
 
     protected override void RunCommand(String actionParameter)
     {
-        if (!this.Plugin.IsApplicationActive())
+        if (!this.EnsureApplicationIsActive())
         {
-            this.Plugin.ClientApplication.Activate();
+            return;
         }
 
         this.Plugin.ClientApplication.SendKeyboardShortcut(this.key, this.modifiers);
+    }
+
+    private Boolean EnsureApplicationIsActive()
+    {
+        if (this.Plugin.IsApplicationActive())
+        {
+            return true;
+        }
+
+        this.Plugin.ClientApplication.Activate();
+        for (var attempt = 0; attempt < 8; attempt++)
+        {
+            Thread.Sleep(20);
+            if (this.Plugin.IsApplicationActive())
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

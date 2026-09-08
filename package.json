@@ -1,14 +1,15 @@
 {
   "name": "codex-desktop",
-  "version": "1.1.0",
+  "version": "1.1.6",
   "description": "Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.",
   "type": "module",
   "scripts": {
-    "build": "node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs",
-    "build:pack": "node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs && node scripts/verify-standalone-package.mjs",
+    "build": "npm run generate:plugin-icon && node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs",
+    "build:pack": "npm run build && node scripts/verify-standalone-package.mjs",
     "build:prod": "npm run build",
     "doctor": "node scripts/doctor.mjs",
     "generate:action-assets": "node scripts/generate-csharp-shortcuts.mjs",
+    "generate:plugin-icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-plugin-icon.ps1",
     "generate:profile": "node scripts/generate-default-profile.mjs",
     "pack": "npm run build:pack",
     "typecheck": "node scripts/generate-csharp-shortcuts.mjs && node scripts/compile-csharp-plugin.mjs",

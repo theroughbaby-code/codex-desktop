@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.1.6 - 2026-09-08
+
+- Added Stop thinking under Chat to interrupt the active visible Codex response.
+- Detected running responses through Codex's enabled, visible `Stop` accessibility control instead of relying on an undocumented shortcut or a separate app-server session.
+- Added a 350 ms guarded state monitor and dynamic Keypad artwork that changes from neutral to red only while a matching Stop control is available.
+- Preferred the foreground Codex window when invoking Stop and performed no action when no unambiguous interrupt control was found.
+- Added matching editable and packaged rounded stop-button SVG assets.
+- Updated the bundled nine-action default profile and bound it to the Codex desktop `ChatGPT` process.
+- Aligned the read-only Codex usage client's reported version with the `1.1.6` package.
+
+## 1.1.5 - 2026-09-08
+
+- Replaced the approval actions' one-pixel runtime circles with explicit variable-width arcs, fixing the thin borders shown on the MX Creative Keypad.
+- Kept the decision glyphs thinner than the new high-contrast circular borders.
+
+## 1.1.4 - 2026-09-08
+
+- Tripled the circular outline widths in the editable and packaged Approve, Always approve, and Deny SVG assets while preserving the thinner decision glyphs.
+- Reworked Open model picker to invoke the active composer's visible accessibility control first, retaining `Ctrl+Shift+M` only as a guarded fallback.
+- Added a short activation-state wait to shortcut actions so a command is not sent to the previously focused Windows application.
+
+## 1.1.3 - 2026-09-07
+
+- Added Approve, Always approve, and Deny actions under a dedicated Approvals group.
+- Invoked visible Codex approval controls through Windows accessibility instead of sending unguarded keystrokes into ordinary chats.
+- Added a safe fallback that activates Codex, opens the next chat needing attention with `Ctrl+Alt+A`, and acts only when an approval surface is positively detected.
+- Used Codex's native `Enter` and `Escape` approval shortcuts only as guarded fallbacks after an approval surface has been found.
+- Added live neutral/green/amber/red Keypad artwork driven by Logitech's dynamic action-image refresh API.
+- Added matching rounded SVG action icons and Options+ picker symbols to the editable icon set and standalone package.
+- Documented the current limitation that Codex does not expose its desktop session's pending approval requests to a second app-server client.
+
+## 1.1.2 - 2026-09-04
+
+- Replaced the low-contrast transparent plugin mark with a dark-green (`#081c05`) rounded-square badge.
+- Added a larger light ChatGPT mark, subtle upper-left glare, soft depth, and a restrained edge highlight for legibility at small sizes.
+- Updated the application icon embedded in the default MX Creative Keypad profile to match the new plugin badge.
+
+## 1.1.1 - 2026-09-04
+
+- Added the public GitHub repository as the package `homePageUrl` while retaining it as the support URL.
+
 ## 1.1.0 - 2026-09-01
 
 - Added marketplace-ready author, copyright, MIT license, license URL, support URL, device, application, and activation metadata.

@@ -106,6 +106,11 @@ const specialActions = [
   { className: 'SendPromptCommand', displayName: 'Custom Prompt' },
   { className: 'UsageStatusCommand', displayName: 'Usage status' },
   { className: 'OpenTerminalCommand', displayName: 'Open terminal' },
+  { className: 'ApproveRequestCommand', displayName: 'Approve' },
+  { className: 'AlwaysApproveRequestCommand', displayName: 'Always approve' },
+  { className: 'DenyRequestCommand', displayName: 'Deny' },
+  { className: 'OpenModelPickerCommand', displayName: 'Open model picker' },
+  { className: 'StopThinkingCommand', displayName: 'Stop thinking' },
 ];
 const allActions = [...specialActions, ...catalog];
 const keep = new Set(allActions.map((action) => `${namespaceName}.${action.className}.svg`));
@@ -121,6 +126,10 @@ function glyphFor(action) {
   if (name === 'OpenCodexCommand' || name === 'SwitchToCodexCommand') return '<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m6 0h4"/>';
   if (name === 'SendPromptCommand') return '<path d="M4 5.5 21 12 4 18.5l2-5.2L15 12l-9-1.3z"/>';
   if (name === 'UsageStatusCommand') return '<path d="M5.6 18a8 8 0 1 1 12.8 0"/><path d="m12 12 4-3"/><circle cx="12" cy="12" r="1.2"/>';
+  if (name === 'ApproveRequestCommand') return '<circle cx="12" cy="12" r="8"/><path d="m8 12 2.5 2.5L16.5 8"/>';
+  if (name === 'AlwaysApproveRequestCommand') return '<circle cx="12" cy="12" r="8"/><path d="m6.5 11.5 2 2 4-4m-1 4 2 2 4-4"/>';
+  if (name === 'DenyRequestCommand') return '<circle cx="12" cy="12" r="8"/><path d="m9 9 6 6m0-6-6 6"/>';
+  if (name === 'StopThinkingCommand') return '<circle cx="12" cy="12" r="8"/><rect x="8.5" y="8.5" width="7" height="7" rx="1.25"/>';
   if (name === 'NewChatCommand') return '<path d="M5 5h10a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4H9l-4 3v-4.5A4 4 0 0 1 3 11V9a4 4 0 0 1 2-4z"/><path d="M11 8v5m-2.5-2.5h5"/>';
   if (name === 'QuickChatCommand') return '<path d="M4 5h11a4 4 0 0 1 4 4v3a4 4 0 0 1-4 4H9l-4 3v-4"/><path d="m12 7-2 4h3l-2 4"/>';
   if (name === 'ArchiveChatCommand') return '<rect x="4" y="6" width="16" height="13" rx="2"/><path d="M3 6h18V3H3zm9 3v6m-2.5-2.5L12 15l2.5-2.5"/>';

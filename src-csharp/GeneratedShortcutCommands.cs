@@ -313,14 +313,6 @@ public sealed class CloseCommand : ShortcutCommandBase
     }
 }
 
-public sealed class OpenModelPickerCommand : ShortcutCommandBase
-{
-    public OpenModelPickerCommand()
-        : base("Open model picker", "Opens the model picker.", "General", VirtualKeyCode.KeyM, ModifierKey.Control | ModifierKey.Shift)
-    {
-    }
-}
-
 public sealed class CopyDeeplinkCommand : ShortcutCommandBase
 {
     public CopyDeeplinkCommand()
