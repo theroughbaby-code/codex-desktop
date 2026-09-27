@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -8,9 +8,38 @@ const logiRoot = 'C:\\Program Files\\Logi\\LogiPluginService';
 const targetFramework = 'net10.0-windows';
 const outputDirectory = path.join(root, 'src-csharp', 'bin', 'Release', targetFramework);
 const outputFile = path.join(outputDirectory, 'CodexDesktopPlugin.dll');
+const resourceDirectory = path.join(root, 'src-csharp', 'resources', 'generated');
+
+await import(new URL('./generate-runtime-state-images.mjs', import.meta.url));
 
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
+
+const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
+const version = String(packageJson.version);
+if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  throw new Error(`Expected a three-part numeric package version, received '${version}'.`);
+}
+
+const assemblyInfoPath = path.join(outputDirectory, 'PluginBuildInfo.g.cs');
+await writeFile(assemblyInfoPath, `using System.Reflection;
+
+[assembly: AssemblyTitle("Codex Desktop")]
+[assembly: AssemblyProduct("Codex Desktop")]
+[assembly: AssemblyDescription("Controls ChatGPT and Codex Desktop from Logitech MX Creative Keypad.")]
+[assembly: AssemblyCompany("TheRoughBaby")]
+[assembly: AssemblyCopyright("Copyright 2026 TheRoughBaby. All rights reserved.")]
+[assembly: AssemblyVersion("${version}.0")]
+[assembly: AssemblyFileVersion("${version}.0")]
+[assembly: AssemblyInformationalVersion("${version}")]
+
+namespace Loupedeck.CodexDesktopPlugin;
+
+internal static class PluginBuildInfo
+{
+    public const string Version = "${version}";
+}
+`);
 
 const sdkVersion = await newestDirectory(path.join(dotnetRoot, 'sdk'));
 const cscPath = path.join(dotnetRoot, 'sdk', sdkVersion, 'Roslyn', 'bincore', 'csc.dll');
@@ -21,7 +50,16 @@ const desktopDirectory = path.join(dotnetRoot, 'shared', 'Microsoft.WindowsDeskt
 
 const sources = (await readdir(path.join(root, 'src-csharp')))
   .filter((fileName) => fileName.endsWith('.cs'))
-  .map((fileName) => path.join(root, 'src-csharp', fileName));
+  .map((fileName) => path.join(root, 'src-csharp', fileName))
+  .concat(assemblyInfoPath);
+
+const resources = (await readdir(resourceDirectory, { withFileTypes: true }))
+  .filter((entry) => entry.isFile() && entry.name.endsWith('.png'))
+  .sort((left, right) => left.name.localeCompare(right.name))
+  .map((entry) => ({
+    absolutePath: path.join(resourceDirectory, entry.name),
+    manifestName: `Loupedeck.CodexDesktopPlugin.Resources.${entry.name}`,
+  }));
 
 const references = [
   ...await dllsIn(runtimeDirectory),
@@ -39,6 +77,7 @@ const responseLines = [
   '-optimize+',
   `-out:${quoteForResponseFile(outputFile)}`,
   ...references.map((reference) => `-reference:${quoteForResponseFile(reference)}`),
+  ...resources.map((resource) => `-resource:${quoteForResponseFile(resource.absolutePath)},${resource.manifestName}`),
   ...sources.map(quoteForResponseFile),
 ];
 

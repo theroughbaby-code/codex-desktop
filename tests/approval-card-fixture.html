@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Codex Approval Scanner Fixture</title>
+  <style>
+    body {
+      margin: 40px;
+      color: #171a18;
+      font: 16px/1.4 system-ui, sans-serif;
+    }
+
+    .\@container\/approval-card {
+      width: 560px;
+      border: 1px solid #777;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    form,
+    .ms-auto {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ms-auto {
+      margin-inline-start: auto;
+    }
+
+    button {
+      min-height: 36px;
+      padding: 6px 14px;
+    }
+
+    #options {
+      width: 36px;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <main
+    class="@container/approval-card"
+    data-codex-approval-surface="true"
+    aria-label="codex-approval-surface">
+    <div aria-atomic="true" role="alert">
+      <strong id="title">Approval required</strong>
+    </div>
+    <p id="detail">Harmless accessibility integration test.</p>
+    <form>
+      <button id="persistent" type="button">Always allow</button>
+      <div class="ms-auto flex @max-md/approval-card:ms-0">
+        <button id="deny" type="button">Deny</button>
+        <button id="approve" type="submit">Allow once</button>
+        <button id="options" type="button" aria-haspopup="menu" aria-label="Approval options">...</button>
+      </div>
+    </form>
+    <output id="status" aria-live="polite">none</output>
+  </main>
+  <script>
+    const translations = {
+      en: {
+        title: "Approval required",
+        persistent: "Always allow",
+        deny: "Deny",
+        approve: "Allow once",
+        options: "Approval options",
+      },
+      de: {
+        title: "Genehmigung erforderlich",
+        persistent: "Immer zulassen",
+        deny: "Ablehnen",
+        approve: "Einmal zulassen",
+        options: "Genehmigungsoptionen",
+      },
+      fr: {
+        title: "Approbation requise",
+        persistent: "Toujours autoriser",
+        deny: "Refuser",
+        approve: "Autoriser une fois",
+        options: "Options d'approbation",
+      },
+      structural: {
+        title: "Localized request",
+        persistent: "Localized persistent action",
+        deny: "Localized negative action",
+        approve: "Localized positive action",
+        options: "Localized scope options",
+      },
+    };
+
+    const requested = new URLSearchParams(location.search).get("lang") || "en";
+    const labels = translations[requested] || translations.structural;
+    document.documentElement.lang = requested;
+    document.title = `Codex Approval Scanner Fixture - ${requested}`;
+    for (const [id, label] of Object.entries(labels)) {
+      const element = document.getElementById(id);
+      if (!element) continue;
+      if (id === "options") element.setAttribute("aria-label", label);
+      else element.textContent = label;
+    }
+
+    document.querySelector("form").addEventListener("submit", event => event.preventDefault());
+    for (const id of ["approve", "persistent", "deny"]) {
+      document.getElementById(id).addEventListener("click", () => {
+        document.getElementById("status").textContent = id;
+      });
+    }
+  </script>
+</body>
+</html>

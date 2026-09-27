@@ -2,17 +2,17 @@
 
 **A Windows application plugin for controlling ChatGPT and Codex Desktop from the Logitech MX Creative Keypad in Logi Options+.**
 
-- Current version: **1.1.6**
+- Current version: **1.1.9**
 - Platform: **Windows**
 - Device profile: **Logitech MX Creative Keypad**
-- Download: [CodexDesktop-1.1.6.lplug4](./CodexDesktop-1.1.6.lplug4)
+- Download: [CodexDesktop-1.1.9.lplug4](./CodexDesktop-1.1.9.lplug4)
 - Project and support: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
 
-## Latest: 1.1.6
+## Latest: 1.1.9
 
-- Added a guarded Stop thinking action that invokes the active response's visible Stop control.
-- The Stop thinking Keypad icon turns red while Codex exposes an interruptible active response.
-- Updated the bundled nine-action profile for the current submission build.
+- Added a read-only macOS environment audit and runbook for the upcoming Mac port; the packaged plugin remains Windows-only in this release.
+- Extended approval and Stop detection to consume stable accessible names and help text when Chromium does not expose DOM identifiers or CSS classes.
+- Refreshed the multilingual UI Automation fixtures and verified the package with the official Logitech tool.
 
 ## Installation
 
@@ -36,13 +36,13 @@
 
 The action library includes guarded approval and interruption controls, chat creation and management, navigation, panels, project controls, app settings, Custom Prompt, model selection, Codex usage status, and direct GPT/Codex switching.
 
-Codex Desktop does not currently expose another local client API for observing or resolving approval requests owned by the running desktop session. The approval buttons therefore use the visible Windows accessibility controls. Their live color can detect an exposed approval surface or status, but it cannot guarantee detection inside every hidden or unloaded chat.
+Codex Desktop does not currently expose another local client API for observing or resolving approval requests owned by the running desktop session. The approval buttons therefore use visible Windows accessibility controls. Detection is designed to be independent of the selected Codex language, with translated labels used only as fallbacks. Their live color can detect an exposed approval surface or status, but it cannot guarantee detection inside every hidden or unloaded chat.
 
 ## Package
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.1.6
+- Version: 1.1.9
 - Plugin type: Windows application plugin
 - Runtime: C# plugin through Logi Plugin Service
 - Target device: MX Creative Console Keypad through Logi Options+

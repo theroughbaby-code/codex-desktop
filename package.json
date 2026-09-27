@@ -1,9 +1,10 @@
 {
   "name": "codex-desktop",
-  "version": "1.1.6",
+  "version": "1.1.9",
   "description": "Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.",
   "type": "module",
   "scripts": {
+    "audit:mac": "node scripts/audit-macos-environment.mjs",
     "build": "npm run generate:plugin-icon && node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs",
     "build:pack": "npm run build && node scripts/verify-standalone-package.mjs",
     "build:prod": "npm run build",
@@ -11,7 +12,11 @@
     "generate:action-assets": "node scripts/generate-csharp-shortcuts.mjs",
     "generate:plugin-icon": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update-plugin-icon.ps1",
     "generate:profile": "node scripts/generate-default-profile.mjs",
+    "generate:runtime-images": "node scripts/generate-runtime-state-images.mjs",
     "pack": "npm run build:pack",
+    "test:approval-uia": "pwsh -NoProfile -File tests/run-approval-uia-tests.ps1",
+    "test:stop-uia": "pwsh -NoProfile -File tests/run-stop-uia-tests.ps1",
+    "test:uia": "npm run test:approval-uia && npm run test:stop-uia",
     "typecheck": "node scripts/generate-csharp-shortcuts.mjs && node scripts/compile-csharp-plugin.mjs",
     "verify:no-pluginapi-dll": "node scripts/check-no-pluginapi-dll.mjs",
     "verify:package": "node scripts/verify-standalone-package.mjs",

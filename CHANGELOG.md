@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.1.9 - 2026-09-27
+
+- Added a read-only macOS environment audit that records the ChatGPT bundle identity, architectures, URL schemes, AppleScript support, Codex CLI, Logitech runtime paths, build tools, profiles, and relevant processes without collecting credentials.
+- Added a Mac Step 1 runbook covering the remaining Accessibility, application-profile, Adapt to App, and physical-Keypad checks.
+- Extended approval-surface discovery to recognize stable accessibility names and help text when Chromium omits DOM automation IDs and CSS classes.
+- Extended Stop thinking discovery to accept a stable composer marker exposed through accessibility help text while retaining translated labels only as guarded fallbacks.
+- Updated the approval and Stop UI Automation fixtures for current Chromium accessibility behavior and revalidated English, Czech, German, French, Chinese, and label-independent structural paths.
+- Rebuilt and verified the standalone package with `LogiPluginTool`; `PluginApi.dll` remains excluded.
+
+## 1.1.8 - 2026-09-27
+
+- Replaced runtime-generated approval and Stop thinking bitmaps with embedded 80x80 PNG state images loaded through the Logitech SDK resource API.
+- Preserved neutral and live green, amber, and red device states while avoiding the dynamic-image serialization errors found in the QA trace.
+- Removed the runtime-generated Usage status bitmap; its packaged SVG remains stable while its button label continues to show live remaining percentages.
+- Added deterministic generation of the embedded state images to the build pipeline.
+- Switched release archive creation to the official `LogiPluginTool pack` command.
+- Stamped the plugin DLL with package, file, informational, and assembly version metadata sourced from `package.json`.
+- Made the Codex app-server client report the generated package version instead of a separately maintained hardcoded value.
+
+## 1.1.7 - 2026-09-08
+
+- Made Stop thinking language-independent at its primary path by matching the stable Codex composer action structure, with every official stop label bundled in the current Codex Desktop release as a guarded fallback.
+- Prevented Stop thinking from matching unrelated voice, trace, audio, and page controls that happen to use the same translated Stop label.
+- Added Stop thinking UI Automation coverage for English, Czech, German, French, Chinese, a stable-ID unknown-label case, actual invocation, and an unrelated Stop-control decoy.
+- Cached detected approval and Stop controls so device presses invoke the current target directly; a full accessibility rescan now occurs only when the cache is empty, stale, or due for a periodic safety refresh.
+- Removed generic Codex activation from the approval and Stop fast paths, activating the exact matched chat window instead.
+- Reduced Stop monitoring to a cheap 300 ms read of the cached composer action, with full discovery every eight seconds and a two-second retry only when no composer control is cached.
+- Narrowed approval discovery to likely decision controls and their approval-card ancestors, reducing measured cold scans from about 3.5 seconds to about 0.26 seconds on the test system.
+- Changed approval monitoring to 1500 ms idle discovery and cheap 250 ms cached validation while a request is pending, balancing prompt device feedback with low background CPU use.
+- Made approval discovery language-independent at its primary path by prioritizing semantic automation IDs, Codex's approval-card marker, shared ancestor relationships, and fixed decision-control order.
+- Added fallback labels for every approval translation bundled with the current Codex Desktop release, including one-time approval, conversation approval, approval options, and denial.
+- Added repeatable Windows UI Automation coverage for English, German, French, and an unknown-label fixture that verifies the structural path without translated text.
+- Removed an accidental runtime dependency on the SDK's `DistinctBy` helper from approval relationship matching; `PluginApi.dll` remains host-owned and excluded from the package.
+- Reacquired approval controls by semantic role after window activation so localized captions and accessibility-tree rerenders do not invalidate an action.
+- Replaced whole-desktop accessibility scans with direct enumeration of visible Codex window handles, preventing unrelated protected windows from aborting approval discovery.
+- Added approval support for both `ChatGPT` and `ChatGPT Classic` processes and preferred the foreground Codex window when several are open.
+- Broadened approval detection across accessible names, help text, automation IDs, item status, control roles, and current approval wording.
+- Focused the exact window and matched control before guarded keyboard fallback, while retaining the rule that ordinary chats never receive an unverified approval command.
+- Replaced short fixed navigation delays with bounded state polling for Codex activation, attention navigation, and persistent approval menus.
+- Added per-action SDK log messages that distinguish successful invocation, focused-key fallback, unavailable controls, missing requests, and activation failures.
+
 ## 1.1.6 - 2026-09-08
 
 - Added Stop thinking under Chat to interrupt the active visible Codex response.

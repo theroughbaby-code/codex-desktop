@@ -90,8 +90,23 @@ internal sealed class CodexRateLimitClient : IDisposable
 
         try
         {
+            var initializeRequest = JsonSerializer.Serialize(new
+            {
+                method = "initialize",
+                id = 1,
+                @params = new
+                {
+                    clientInfo = new
+                    {
+                        name = "codex-desktop-logi-plugin",
+                        title = "Codex Desktop for Logi Options+",
+                        version = PluginBuildInfo.Version,
+                    },
+                    capabilities = (Object?)null,
+                },
+            });
             await process.StandardInput.WriteLineAsync(
-                "{\"method\":\"initialize\",\"id\":1,\"params\":{\"clientInfo\":{\"name\":\"codex-desktop-logi-plugin\",\"title\":\"Codex Desktop for Logi Options+\",\"version\":\"1.1.6\"},\"capabilities\":null}}"
+                initializeRequest
             ).ConfigureAwait(false);
             await process.StandardInput.FlushAsync().ConfigureAwait(false);
 
