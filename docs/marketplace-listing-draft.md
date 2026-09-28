@@ -47,5 +47,5 @@ On macOS, Logi Plugin Service needs Accessibility permission for state-aware con
 - Marketplace account/developer identity
 - Developer EULA acceptance
 - Final screenshots and banner URLs/files
-- Verified universal `CodexDesktop-1.1.13.lplug4`
+- Verified universal `CodexDesktop-1.1.16.lplug4`
 - Windows and macOS validation notes from physical MX Creative Keypad testing

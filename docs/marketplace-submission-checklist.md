@@ -1,6 +1,6 @@
 # Logitech Marketplace submission checklist
 
-Version 1.1.13 is the current release candidate. Its release artifact is one `.lplug4` package containing the native Windows and macOS assemblies:
+Version 1.1.16 is the current release candidate. Its release artifact is one `.lplug4` package containing the native Windows and macOS assemblies:
 
 ```text
 metadata/LoupedeckPackage.yaml
@@ -55,7 +55,8 @@ The universal pack command requires both DLLs, includes the MIT license, exclude
 
 - Both assemblies must expose every action assigned by `DefaultProfile70.lp5`: New chat, Open Codex, Settings, New standalone chat, Usage status, Open model picker, Approve, Stop Thinking, and Deny.
 - Usage status runs the user's local `codex app-server` and requests `account/rateLimits/read`. The Mac assembly must use macOS Codex CLI discovery; the Windows assembly uses Windows executable discovery.
-- On macOS, Approve, Always approve, Deny, and Stop Thinking use the local Accessibility API. Logi Plugin Service therefore needs permission under **System Settings > Privacy & Security > Accessibility**. Open model picker uses the desktop shortcut.
+- On macOS, Approve, Always approve, Deny, Stop Thinking, and Open model picker use the local Accessibility API. Logi Plugin Service therefore needs permission under **System Settings > Privacy & Security > Accessibility**. Open model picker retains literal `Control+Shift+M` as a fallback.
+- Switch to GPT, Switch to Work, and Switch to Codex use the visible macOS product and composer controls, with an exact command-menu fallback when an existing conversation has no Home composer toggle. Windows keeps its `Alt+1/2/3` mode-switch bindings; macOS does not use a number-key fallback because tab navigation can intercept it.
 - State-aware actions must reacquire their exact control after activating Codex and remain inactive when no usable target is available.
 - The curated production profile must contain only intended native plugin names. `npm run generate:test-profile` writes its 61-action developer profile to `artifacts/test-profiles/` and must never replace `package/profiles/DefaultProfile70.lp5`.
 
@@ -70,7 +71,7 @@ Use this statement in the Marketplace listing and developer privacy material. Re
 
 ## Required pre-submission validation
 
-- Confirm version `1.1.13` in `package.json`, `LoupedeckPackage.yaml`, both assembly metadata records, the archive filename, README, and changelog.
+- Confirm version `1.1.16` in `package.json`, `LoupedeckPackage.yaml`, both assembly metadata records, the archive filename, README, and changelog.
 - Install the same universal package on Windows and macOS.
 - Confirm application matching and Adapt to App on both systems.
 - Exercise every default-profile action on an MX Creative Keypad.

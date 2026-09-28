@@ -2,17 +2,20 @@
 
 **A Logitech MX Creative Keypad plugin for controlling ChatGPT and Codex Desktop on Windows and macOS through Logi Options+.**
 
-- Current release candidate: **1.1.13**
+- Current release candidate: **1.1.16**
 - Platforms: **Windows and macOS**
 - Release artifact: **one universal `.lplug4` package**
 - Device profile: **Logitech MX Creative Keypad**
 - Project: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
 - Support: [GitHub issues](https://github.com/theroughbaby-code/codex-desktop/issues)
 
-## 1.1.13 release candidate
+## 1.1.16 release candidate
 
-- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.13.lplug4` archive.
+- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.16.lplug4` archive.
 - Adds native macOS shortcut dispatch, application activation, approval controls, model selection, Stop Thinking, and Codex usage status.
+- Selects GPT, Work, or Codex through the visible macOS product and composer controls, with an exact app command-menu fallback when a restored conversation has no Home composer toggle; Windows retains `Alt+1/2/3`.
+- Opens the macOS model selector through its accessible control first and uses the app's literal `Control+Shift+M` binding as fallback.
+- Activates ChatGPT and reacquires live macOS approval and Stop Thinking controls before invoking them, with a native center click when Electron omits a usable press action.
 - Uses each operating system's local accessibility API for state-aware actions and reacquires the actionable control after bringing Codex to the foreground.
 - Reads Codex usage through the user's locally installed Codex CLI session on both platforms.
 
@@ -40,7 +43,7 @@ Usage status requires the Codex CLI and a one-time `codex login` on each compute
 
 The action library also includes chat creation and management, navigation, panels, project controls, app settings, and direct GPT/Codex switching.
 
-Approve, Always approve, Deny, and Stop Thinking operate only after the plugin finds the corresponding live control. Windows uses UI Automation and macOS uses Accessibility. Open model picker uses the desktop shortcut on macOS and an accessibility-first path with shortcut fallback on Windows. A lit state reports an accessible approval or Stop control; hidden and unloaded chats may not expose their controls until Codex opens them.
+Approve, Always approve, Deny, Stop Thinking, and the macOS mode-switch actions operate only after the plugin finds the corresponding live control. Windows uses UI Automation and macOS uses Accessibility. Open model picker uses an accessibility-first path with shortcut fallback on both systems. A lit state reports an accessible approval or Stop control; hidden and unloaded chats may not expose their controls until Codex opens them.
 
 ## Privacy and local data use
 
@@ -52,7 +55,7 @@ Usage status starts the locally installed `codex app-server` process and request
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.1.13
+- Version: 1.1.16
 - Plugin type: Cross-platform application plugin
 - Runtimes: C# assemblies in `win/` and `mac/`
 - Target device: MX Creative Console Keypad through Logi Options+

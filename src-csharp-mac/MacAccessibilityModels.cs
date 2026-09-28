@@ -3,10 +3,26 @@ namespace Loupedeck.CodexDesktopPlugin;
 internal enum MacActionAttempt
 {
     NoTarget,
+    AlreadyActive,
     Invoked,
+    Clicked,
     ReadyForKeyboardFallback,
     Unavailable,
     PermissionRequired,
+}
+
+public enum MacDesktopMode
+{
+    ChatGPT,
+    Work,
+    Codex,
+}
+
+internal enum MacTargetAction
+{
+    Unavailable,
+    Invoked,
+    Clicked,
 }
 
 public enum ApprovalDecision
@@ -95,34 +111,114 @@ internal sealed class MacAxTarget : IDisposable
             this.IsFocusedWindow,
             this.Label);
 
-    public Boolean TryPress()
-    {
-        var actions = this.Role == "AXMenuItem"
-            ? new[] { "AXPick", "AXPress", "AXConfirm" }
-            : new[] { "AXPress", "AXConfirm", "AXPick" };
-        return actions.Any(action =>
-            MacAccessibilityNative.TryPerformAdvertisedAction(
-                this.element.Handle,
-                action));
-    }
-
-    public Boolean TryOpen()
+    public MacTargetAction TryPress()
     {
         if (!this.IsFocusedWindow)
         {
             this.ActivateWindow();
-            return false;
+            return MacTargetAction.Unavailable;
         }
 
-        return MacAccessibilityNative.TryPerformAdvertisedAction(this.element.Handle, "AXShowMenu")
-            || MacAccessibilityNative.TryPerformAdvertisedAction(this.element.Handle, "AXPress");
+        if (!this.IsCurrentTarget())
+        {
+            return MacTargetAction.Unavailable;
+        }
+
+        var actions = this.Role == "AXMenuItem"
+            ? new[] { "AXPick", "AXPress", "AXConfirm" }
+            : new[] { "AXPress", "AXConfirm", "AXPick" };
+        foreach (var action in actions)
+        {
+            if (!this.IsCurrentTarget())
+            {
+                return MacTargetAction.Unavailable;
+            }
+
+            if (MacAccessibilityNative.TryPerformAdvertisedAction(
+                    this.element.Handle,
+                    action))
+            {
+                return MacTargetAction.Invoked;
+            }
+        }
+
+        return this.IsCurrentTarget()
+            && MacAccessibilityNative.TryClickCenter(this.element.Handle)
+            ? MacTargetAction.Clicked
+            : MacTargetAction.Unavailable;
+    }
+
+    public MacTargetAction TryPressOnly()
+    {
+        if (!this.IsFocusedWindow)
+        {
+            this.ActivateWindow();
+            return MacTargetAction.Unavailable;
+        }
+
+        return this.IsCurrentTarget()
+            && MacAccessibilityNative.TryPerformAdvertisedAction(
+                this.element.Handle,
+                "AXPress")
+            ? MacTargetAction.Invoked
+            : MacTargetAction.Unavailable;
+    }
+
+    public MacTargetAction TryOpen()
+    {
+        if (!this.IsFocusedWindow)
+        {
+            this.ActivateWindow();
+            return MacTargetAction.Unavailable;
+        }
+
+        if (!this.IsCurrentTarget())
+        {
+            return MacTargetAction.Unavailable;
+        }
+
+        // Chromium currently advertises AXShowMenu on web pop-up buttons and
+        // returns success without opening them. Use only press-like semantic
+        // actions here, then fall back to the verified center click.
+        foreach (var action in new[] { "AXPress", "AXConfirm", "AXPick" })
+        {
+            if (!this.IsCurrentTarget())
+            {
+                return MacTargetAction.Unavailable;
+            }
+
+            if (MacAccessibilityNative.TryPerformAdvertisedAction(
+                    this.element.Handle,
+                    action))
+            {
+                return MacTargetAction.Invoked;
+            }
+        }
+
+        return this.IsCurrentTarget()
+            && MacAccessibilityNative.TryClickCenter(this.element.Handle)
+            ? MacTargetAction.Clicked
+            : MacTargetAction.Unavailable;
+    }
+
+    public MacTargetAction TryClick()
+    {
+        if (!this.IsFocusedWindow)
+        {
+            this.ActivateWindow();
+            return MacTargetAction.Unavailable;
+        }
+
+        return this.IsCurrentTarget()
+            && MacAccessibilityNative.TryClickCenter(this.element.Handle)
+            ? MacTargetAction.Clicked
+            : MacTargetAction.Unavailable;
     }
 
     public Boolean TryFocus()
     {
-        if (!this.IsFocusedWindow)
+        if (!this.IsCurrentTarget())
         {
-            this.ActivateWindow();
             return false;
         }
 
@@ -134,6 +230,12 @@ internal sealed class MacAxTarget : IDisposable
         this.element.Dispose();
         this.window.Dispose();
     }
+
+    private Boolean IsCurrentTarget()
+        => this.IsFocusedWindow
+            && MacAccessibilityNative.IsFrontmostFocusedWindow(
+                this.element.Handle,
+                this.window.Handle);
 
     private void ActivateWindow()
     {

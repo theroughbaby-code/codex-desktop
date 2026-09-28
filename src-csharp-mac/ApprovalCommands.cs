@@ -29,10 +29,13 @@ public abstract class ApprovalCommandBase : PluginDynamicCommand
 
     protected override void RunCommand(String actionParameter)
     {
+        this.Log.Info($"Approval action '{this.DisplayName}' triggered.");
+
         // Activating can replace Electron's accessibility nodes. Always activate
         // first, then let the monitor scan a fresh tree before invoking a target.
         if (!this.ActivateCodex())
         {
+            this.Log.Warning($"Approval action '{this.DisplayName}' could not activate ChatGPT/Codex Desktop.");
             return;
         }
 
@@ -58,6 +61,30 @@ public abstract class ApprovalCommandBase : PluginDynamicCommand
                     ? VirtualKeyCode.Escape
                     : VirtualKeyCode.Return,
                 ModifierKey.None);
+            this.Log.Info(
+                $"Approval action '{this.DisplayName}' used "
+                + (this.decision == ApprovalDecision.Deny ? "Escape" : "Return")
+                + " on the matched focused control.");
+        }
+        else if (attempt == MacActionAttempt.Clicked)
+        {
+            this.Log.Info($"Approval action '{this.DisplayName}' clicked the matched Codex control.");
+        }
+        else if (attempt == MacActionAttempt.Invoked)
+        {
+            this.Log.Info($"Approval action '{this.DisplayName}' invoked the matched Codex control.");
+        }
+        else if (attempt == MacActionAttempt.PermissionRequired)
+        {
+            this.Log.Warning($"Approval action '{this.DisplayName}' requires Accessibility permission for LogiPluginService.");
+        }
+        else if (attempt == MacActionAttempt.Unavailable)
+        {
+            this.Log.Warning($"Approval action '{this.DisplayName}' found a pending request, but its control was unavailable.");
+        }
+        else
+        {
+            this.Log.Warning($"Approval action '{this.DisplayName}' found no accessible pending request after navigation.");
         }
 
         CodexMacStateMonitor.RefreshSoon();
@@ -100,6 +127,7 @@ public abstract class ApprovalCommandBase : PluginDynamicCommand
             Thread.Sleep(75);
             var attempt = CodexMacStateMonitor.TryInvokeApproval(this.decision);
             if (attempt is MacActionAttempt.Invoked
+                or MacActionAttempt.Clicked
                 or MacActionAttempt.ReadyForKeyboardFallback
                 or MacActionAttempt.PermissionRequired)
             {

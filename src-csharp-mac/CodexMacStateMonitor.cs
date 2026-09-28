@@ -101,17 +101,24 @@ internal static class CodexMacStateMonitor
 
     public static MacActionAttempt TryStop()
     {
-        using var cached = ReadSnapshot();
-        var attempt = CodexMacAccessibility.TryStop(cached);
-        if (attempt == MacActionAttempt.Invoked)
+        // A running Electron turn can replace the Stop node at any time. Never
+        // invoke the cached element used for device state; act on a fresh tree.
+        var current = CodexMacAccessibility.Scan();
+        try
         {
-            return attempt;
-        }
+            if (!current.IsTrusted)
+            {
+                current.Dispose();
+                current = CodexMacAccessibility.Scan(promptForPermission: true);
+            }
 
-        using var current = CodexMacAccessibility.Scan(
-            promptForPermission: attempt == MacActionAttempt.PermissionRequired);
-        UpdateSnapshot(current.Clone());
-        return CodexMacAccessibility.TryStop(current);
+            UpdateSnapshot(current.Clone());
+            return CodexMacAccessibility.TryStop(current);
+        }
+        finally
+        {
+            current.Dispose();
+        }
     }
 
     private static void StartTimer()

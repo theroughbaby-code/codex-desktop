@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.1.16 - 2026-09-28 (release candidate)
+
+- Made Switch to GPT, Switch to Work, and Switch to Codex drive the visible macOS product and composer controls through Accessibility, with an exact command-menu fallback when an existing conversation does not expose the Home composer toggle.
+- Removed the unreliable macOS number-key fallback that can be intercepted by tab navigation; Windows keeps its `Alt+1`, `Alt+2`, and `Alt+3` bindings.
+
+## 1.1.15 - 2026-09-28 (release candidate)
+
+- Corrected Open model picker on macOS to use Codex Desktop's literal `Control+Shift+M` binding instead of `Command+Shift+M`.
+- Added an accessibility-first model-picker path with a native center-click fallback for Chromium controls that advertise a successful menu action without opening.
+- Added the same native click fallback to macOS Approve, Always approve, Deny, and Stop Thinking when Electron omits a usable press action.
+- Restored the pointer after native accessibility clicks and added distinct invocation, click, keyboard-fallback, permission, unavailable, and missing-target logs.
+
+## 1.1.14 - 2026-09-28 (release candidate)
+
+- Fixed macOS Stop Thinking after Electron accessibility-tree rerenders by activating ChatGPT and scanning a fresh control tree before invocation.
+- Added bounded retries, multi-window target selection, and a guarded Return fallback only after the exact Stop control accepts focus.
+- Added explicit plugin log results for invoked, unavailable, missing, and permission-blocked Stop actions.
+
 ## 1.1.13 - 2026-09-28 (release candidate)
 
 - Added one universal `.lplug4` layout containing separate `win/CodexDesktopPlugin.dll` and `mac/CodexDesktopPlugin.dll` assemblies under a shared manifest and default profile.

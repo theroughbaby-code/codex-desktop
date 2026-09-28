@@ -185,26 +185,26 @@ public sealed class GoToRecentChat6Command : ShortcutCommandBase
     }
 }
 
-public sealed class SwitchToChatCommand : ShortcutCommandBase
+public sealed class SwitchToChatCommand : ModeSwitchCommandBase
 {
     public SwitchToChatCommand()
-        : base("Switch to GPT", "Switches Codex Desktop to GPT.", "Navigation", VirtualKeyCode.Key1, ModifierKey.AltOrOption)
+        : base("Switch to GPT", "Switches Codex Desktop to GPT.", "Navigation", MacDesktopMode.ChatGPT)
     {
     }
 }
 
-public sealed class SwitchToWorkCommand : ShortcutCommandBase
+public sealed class SwitchToWorkCommand : ModeSwitchCommandBase
 {
     public SwitchToWorkCommand()
-        : base("Switch to Work", "Switches Codex Desktop to Work.", "Navigation", VirtualKeyCode.Key2, ModifierKey.AltOrOption)
+        : base("Switch to Work", "Switches Codex Desktop to Work.", "Navigation", MacDesktopMode.Work)
     {
     }
 }
 
-public sealed class SwitchToCodexCommand : ShortcutCommandBase
+public sealed class SwitchToCodexCommand : ModeSwitchCommandBase
 {
     public SwitchToCodexCommand()
-        : base("Switch to Codex", "Switches Codex Desktop to Codex.", "Navigation", VirtualKeyCode.Key3, ModifierKey.AltOrOption)
+        : base("Switch to Codex", "Switches Codex Desktop to Codex.", "Navigation", MacDesktopMode.Codex)
     {
     }
 }

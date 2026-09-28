@@ -10,6 +10,13 @@ internal static class MacAccessibilityNative
     private const UInt32 Utf8Encoding = 0x08000100;
     private const Int32 AxSuccess = 0;
     private const Int32 AxCannotComplete = -25204;
+    private const UInt32 AxValueCgPoint = 1;
+    private const UInt32 AxValueCgSize = 2;
+    private const Int32 CfNumberSInt64Type = 4;
+    private const UInt32 CgHidEventTap = 0;
+    private const UInt32 CgEventLeftMouseDown = 1;
+    private const UInt32 CgEventLeftMouseUp = 2;
+    private const UInt32 CgMouseButtonLeft = 0;
 
     private static readonly ConcurrentDictionary<String, IntPtr> NativeStrings =
         new(StringComparer.Ordinal);
@@ -177,8 +184,57 @@ internal static class MacAccessibilityNative
         }
     }
 
+    public static Int64? ReadInteger(IntPtr element, String attribute)
+    {
+        if (!TryCopyAttributeValue(element, attribute, out var value))
+        {
+            return null;
+        }
+
+        try
+        {
+            if (CFGetTypeID(value) != CFNumberGetTypeID())
+            {
+                return null;
+            }
+
+            return CFNumberGetValue(value, CfNumberSInt64Type, out var number)
+                ? number
+                : null;
+        }
+        finally
+        {
+            CFRelease(value);
+        }
+    }
+
     public static Boolean IsSameElement(IntPtr left, IntPtr right)
         => left != IntPtr.Zero && right != IntPtr.Zero && CFEqual(left, right);
+
+    public static Boolean IsFrontmostFocusedWindow(IntPtr element, IntPtr expectedWindow)
+    {
+        if (element == IntPtr.Zero
+            || expectedWindow == IntPtr.Zero
+            || AXUIElementGetPid(element, out var processId) != AxSuccess
+            || processId <= 0)
+        {
+            return false;
+        }
+
+        using var application = CreateApplication(processId);
+        if (application is null
+            || ReadBoolean(application.Handle, "AXFrontmost") != true
+            || !TryCopyElement(application.Handle, "AXFocusedWindow", out var focusedWindow)
+            || focusedWindow is null)
+        {
+            return false;
+        }
+
+        using (focusedWindow)
+        {
+            return IsSameElement(expectedWindow, focusedWindow.Handle);
+        }
+    }
 
     public static IReadOnlySet<String> ReadActionNames(IntPtr element)
     {
@@ -261,6 +317,115 @@ internal static class MacAccessibilityNative
         }
     }
 
+    public static Boolean TryClickCenter(IntPtr element)
+    {
+        if (!TryReadPoint(element, "AXPosition", out var position)
+            || !TryReadSize(element, "AXSize", out var size)
+            || !IsFinite(position.X)
+            || !IsFinite(position.Y)
+            || !IsFinite(size.Width)
+            || !IsFinite(size.Height)
+            || size.Width <= 0
+            || size.Height <= 0)
+        {
+            return false;
+        }
+
+        var center = new CgPoint(
+            position.X + (size.Width / 2),
+            position.Y + (size.Height / 2));
+        if (!IsFinite(center.X) || !IsFinite(center.Y))
+        {
+            return false;
+        }
+
+        IntPtr locationEvent = IntPtr.Zero;
+        IntPtr mouseDown = IntPtr.Zero;
+        IntPtr mouseUp = IntPtr.Zero;
+        var originalPosition = default(CgPoint);
+        var shouldRestorePointer = false;
+        try
+        {
+            locationEvent = CGEventCreate(IntPtr.Zero);
+            if (locationEvent == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            originalPosition = CGEventGetLocation(locationEvent);
+            if (!IsFinite(originalPosition.X) || !IsFinite(originalPosition.Y))
+            {
+                return false;
+            }
+
+            shouldRestorePointer = true;
+
+            mouseDown = CGEventCreateMouseEvent(
+                IntPtr.Zero,
+                CgEventLeftMouseDown,
+                center,
+                CgMouseButtonLeft);
+            mouseUp = CGEventCreateMouseEvent(
+                IntPtr.Zero,
+                CgEventLeftMouseUp,
+                center,
+                CgMouseButtonLeft);
+            if (mouseDown == IntPtr.Zero || mouseUp == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            CGEventPost(CgHidEventTap, mouseDown);
+            CGEventPost(CgHidEventTap, mouseUp);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            if (shouldRestorePointer)
+            {
+                _ = CGWarpMouseCursorPosition(originalPosition);
+            }
+
+            Release(mouseUp);
+            Release(mouseDown);
+            Release(locationEvent);
+        }
+    }
+
+    public static Boolean IsNearWindowTopLeft(IntPtr element, IntPtr window)
+    {
+        if (!TryReadPoint(element, "AXPosition", out var elementPosition)
+            || !TryReadSize(element, "AXSize", out var elementSize)
+            || !TryReadPoint(window, "AXPosition", out var windowPosition)
+            || !TryReadSize(window, "AXSize", out var windowSize)
+            || !IsFinite(elementPosition.X)
+            || !IsFinite(elementPosition.Y)
+            || !IsFinite(elementSize.Width)
+            || !IsFinite(elementSize.Height)
+            || !IsFinite(windowPosition.X)
+            || !IsFinite(windowPosition.Y)
+            || !IsFinite(windowSize.Width)
+            || !IsFinite(windowSize.Height)
+            || elementSize.Width <= 0
+            || elementSize.Height <= 0
+            || elementSize.Width > 500
+            || elementSize.Height > 120)
+        {
+            return false;
+        }
+
+        var relativeX = elementPosition.X - windowPosition.X;
+        var relativeY = elementPosition.Y - windowPosition.Y;
+        return relativeX >= -2
+            && relativeY >= -2
+            && relativeX <= Math.Min(520, windowSize.Width * 0.45)
+            && relativeY <= Math.Min(190, windowSize.Height * 0.25);
+    }
+
     public static void Release(IntPtr value)
     {
         if (value != IntPtr.Zero)
@@ -286,6 +451,67 @@ internal static class MacAccessibilityNative
             return false;
         }
     }
+
+    private static Boolean TryReadPoint(
+        IntPtr element,
+        String attribute,
+        out CgPoint point)
+    {
+        point = default;
+        if (!TryCopyAttributeValue(element, attribute, out var value))
+        {
+            return false;
+        }
+
+        try
+        {
+            const UInt32 type = AxValueCgPoint;
+            return CFGetTypeID(value) == AXValueGetTypeID()
+                && AXValueGetType(value) == type
+                && AXValueGetPoint(value, type, out point);
+        }
+        catch
+        {
+            point = default;
+            return false;
+        }
+        finally
+        {
+            CFRelease(value);
+        }
+    }
+
+    private static Boolean TryReadSize(
+        IntPtr element,
+        String attribute,
+        out CgSize size)
+    {
+        size = default;
+        if (!TryCopyAttributeValue(element, attribute, out var value))
+        {
+            return false;
+        }
+
+        try
+        {
+            const UInt32 type = AxValueCgSize;
+            return CFGetTypeID(value) == AXValueGetTypeID()
+                && AXValueGetType(value) == type
+                && AXValueGetSize(value, type, out size);
+        }
+        catch
+        {
+            size = default;
+            return false;
+        }
+        finally
+        {
+            CFRelease(value);
+        }
+    }
+
+    private static Boolean IsFinite(Double value)
+        => !Double.IsNaN(value) && !Double.IsInfinity(value);
 
     private static IntPtr NativeString(String value)
         => NativeStrings.GetOrAdd(
@@ -336,6 +562,26 @@ internal static class MacAccessibilityNative
     private static extern UIntPtr AXUIElementGetTypeID();
 
     [DllImport(ApplicationServices)]
+    private static extern UIntPtr AXValueGetTypeID();
+
+    [DllImport(ApplicationServices)]
+    private static extern UInt32 AXValueGetType(IntPtr value);
+
+    [DllImport(ApplicationServices, EntryPoint = "AXValueGetValue")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern Boolean AXValueGetPoint(
+        IntPtr value,
+        UInt32 type,
+        out CgPoint point);
+
+    [DllImport(ApplicationServices, EntryPoint = "AXValueGetValue")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern Boolean AXValueGetSize(
+        IntPtr value,
+        UInt32 type,
+        out CgSize size);
+
+    [DllImport(ApplicationServices)]
     private static extern Int32 AXUIElementCopyAttributeValue(
         IntPtr element,
         IntPtr attribute,
@@ -355,6 +601,28 @@ internal static class MacAccessibilityNative
 
     [DllImport(ApplicationServices)]
     private static extern Int32 AXUIElementSetMessagingTimeout(IntPtr element, Single timeoutInSeconds);
+
+    [DllImport(ApplicationServices)]
+    private static extern Int32 AXUIElementGetPid(IntPtr element, out Int32 processId);
+
+    [DllImport(ApplicationServices)]
+    private static extern IntPtr CGEventCreate(IntPtr source);
+
+    [DllImport(ApplicationServices)]
+    private static extern CgPoint CGEventGetLocation(IntPtr eventReference);
+
+    [DllImport(ApplicationServices)]
+    private static extern IntPtr CGEventCreateMouseEvent(
+        IntPtr source,
+        UInt32 mouseType,
+        CgPoint mouseCursorPosition,
+        UInt32 mouseButton);
+
+    [DllImport(ApplicationServices)]
+    private static extern void CGEventPost(UInt32 tap, IntPtr eventReference);
+
+    [DllImport(ApplicationServices)]
+    private static extern Int32 CGWarpMouseCursorPosition(CgPoint newCursorPosition);
 
     [DllImport(CoreFoundation)]
     private static extern IntPtr CFStringCreateWithCString(
@@ -387,6 +655,16 @@ internal static class MacAccessibilityNative
     private static extern Boolean CFBooleanGetValue(IntPtr value);
 
     [DllImport(CoreFoundation)]
+    private static extern UIntPtr CFNumberGetTypeID();
+
+    [DllImport(CoreFoundation)]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern Boolean CFNumberGetValue(
+        IntPtr value,
+        Int32 numberType,
+        out Int64 result);
+
+    [DllImport(CoreFoundation)]
     private static extern UIntPtr CFArrayGetTypeID();
 
     [DllImport(CoreFoundation)]
@@ -416,4 +694,10 @@ internal static class MacAccessibilityNative
         IntPtr count,
         IntPtr keyCallbacks,
         IntPtr valueCallbacks);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct CgPoint(Double X, Double Y);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly record struct CgSize(Double Width, Double Height);
 }
