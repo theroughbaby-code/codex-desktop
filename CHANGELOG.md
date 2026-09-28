@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.12 - 2026-09-28 (release candidate)
+## 1.1.13 - 2026-09-28 (release candidate)
 
 - Added one universal `.lplug4` layout containing separate `win/CodexDesktopPlugin.dll` and `mac/CodexDesktopPlugin.dll` assemblies under a shared manifest and default profile.
 - Added the native macOS plugin path with Mac shortcut mappings, ChatGPT bundle activation, approval controls, model selection, and Stop Thinking support.

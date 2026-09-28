@@ -1,6 +1,6 @@
 # Logitech Marketplace submission checklist
 
-Version 1.1.12 is the current release candidate. Its release artifact is one `.lplug4` package containing the native Windows and macOS assemblies:
+Version 1.1.13 is the current release candidate. Its release artifact is one `.lplug4` package containing the native Windows and macOS assemblies:
 
 ```text
 metadata/LoupedeckPackage.yaml
@@ -70,7 +70,7 @@ Use this statement in the Marketplace listing and developer privacy material. Re
 
 ## Required pre-submission validation
 
-- Confirm version `1.1.12` in `package.json`, `LoupedeckPackage.yaml`, both assembly metadata records, the archive filename, README, and changelog.
+- Confirm version `1.1.13` in `package.json`, `LoupedeckPackage.yaml`, both assembly metadata records, the archive filename, README, and changelog.
 - Install the same universal package on Windows and macOS.
 - Confirm application matching and Adapt to App on both systems.
 - Exercise every default-profile action on an MX Creative Keypad.

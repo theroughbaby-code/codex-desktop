@@ -2,16 +2,16 @@
 
 **A Logitech MX Creative Keypad plugin for controlling ChatGPT and Codex Desktop on Windows and macOS through Logi Options+.**
 
-- Current release candidate: **1.1.12**
+- Current release candidate: **1.1.13**
 - Platforms: **Windows and macOS**
 - Release artifact: **one universal `.lplug4` package**
 - Device profile: **Logitech MX Creative Keypad**
 - Project: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
 - Support: [GitHub issues](https://github.com/theroughbaby-code/codex-desktop/issues)
 
-## 1.1.12 release candidate
+## 1.1.13 release candidate
 
-- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.12.lplug4` archive.
+- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.13.lplug4` archive.
 - Adds native macOS shortcut dispatch, application activation, approval controls, model selection, Stop Thinking, and Codex usage status.
 - Uses each operating system's local accessibility API for state-aware actions and reacquires the actionable control after bringing Codex to the foreground.
 - Reads Codex usage through the user's locally installed Codex CLI session on both platforms.
@@ -52,7 +52,7 @@ Usage status starts the locally installed `codex app-server` process and request
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.1.12
+- Version: 1.1.13
 - Plugin type: Cross-platform application plugin
 - Runtimes: C# assemblies in `win/` and `mac/`
 - Target device: MX Creative Console Keypad through Logi Options+
