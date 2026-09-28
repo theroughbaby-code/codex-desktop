@@ -55,7 +55,9 @@ public sealed class StopThinkingCommand : PluginDynamicCommand
         }
         else if (attempt == MacActionAttempt.PermissionRequired)
         {
-            this.Log.Warning("Stop thinking requires Accessibility permission for LogiPluginService.");
+            this.Log.Warning(
+                $"Stop thinking requires Accessibility permission. "
+                + CodexMacAccessibility.AccessibilityRemediation);
         }
         else if (attempt == MacActionAttempt.Unavailable)
         {

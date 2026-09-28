@@ -117,6 +117,19 @@ internal static class MacAccessibilityNative
     }
 
     public static void ForEachElement(IntPtr element, String attribute, Action<IntPtr> visitor)
+        => ForEachElement(element, attribute, visitor, reverse: false);
+
+    public static void ForEachElementReverse(
+        IntPtr element,
+        String attribute,
+        Action<IntPtr> visitor)
+        => ForEachElement(element, attribute, visitor, reverse: true);
+
+    private static void ForEachElement(
+        IntPtr element,
+        String attribute,
+        Action<IntPtr> visitor,
+        Boolean reverse)
     {
         if (!TryCopyAttributeValue(element, attribute, out var value))
         {
@@ -130,10 +143,13 @@ internal static class MacAccessibilityNative
                 return;
             }
 
-            var count = CFArrayGetCount(value);
-            for (IntPtr index = 0; index.ToInt64() < count.ToInt64(); index += 1)
+            var count = CFArrayGetCount(value).ToInt64();
+            var first = reverse ? count - 1 : 0;
+            var last = reverse ? -1 : count;
+            var step = reverse ? -1 : 1;
+            for (var index = first; index != last; index += step)
             {
-                var child = CFArrayGetValueAtIndex(value, index);
+                var child = CFArrayGetValueAtIndex(value, new IntPtr(index));
                 if (child != IntPtr.Zero && CFGetTypeID(child) == AXUIElementGetTypeID())
                 {
                     visitor(child);
@@ -424,6 +440,42 @@ internal static class MacAccessibilityNative
             && relativeY >= -2
             && relativeX <= Math.Min(520, windowSize.Width * 0.45)
             && relativeY <= Math.Min(190, windowSize.Height * 0.25);
+    }
+
+    public static Boolean IsNearWindowBottomComposer(IntPtr element, IntPtr window)
+    {
+        if (!TryReadPoint(element, "AXPosition", out var elementPosition)
+            || !TryReadSize(element, "AXSize", out var elementSize)
+            || !TryReadPoint(window, "AXPosition", out var windowPosition)
+            || !TryReadSize(window, "AXSize", out var windowSize)
+            || !IsFinite(elementPosition.X)
+            || !IsFinite(elementPosition.Y)
+            || !IsFinite(elementSize.Width)
+            || !IsFinite(elementSize.Height)
+            || !IsFinite(windowPosition.X)
+            || !IsFinite(windowPosition.Y)
+            || !IsFinite(windowSize.Width)
+            || !IsFinite(windowSize.Height)
+            || elementSize.Width <= 0
+            || elementSize.Height <= 0
+            || elementSize.Width > 180
+            || elementSize.Height > 140
+            || windowSize.Width <= 0
+            || windowSize.Height <= 0)
+        {
+            return false;
+        }
+
+        var relativeCenterX = elementPosition.X
+            + (elementSize.Width / 2)
+            - windowPosition.X;
+        var relativeCenterY = elementPosition.Y
+            + (elementSize.Height / 2)
+            - windowPosition.Y;
+        return relativeCenterX >= windowSize.Width * 0.35
+            && relativeCenterX <= windowSize.Width + 2
+            && relativeCenterY >= windowSize.Height * 0.55
+            && relativeCenterY <= windowSize.Height + 2;
     }
 
     public static void Release(IntPtr value)

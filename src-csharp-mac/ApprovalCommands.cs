@@ -76,7 +76,9 @@ public abstract class ApprovalCommandBase : PluginDynamicCommand
         }
         else if (attempt == MacActionAttempt.PermissionRequired)
         {
-            this.Log.Warning($"Approval action '{this.DisplayName}' requires Accessibility permission for LogiPluginService.");
+            this.Log.Warning(
+                $"Approval action '{this.DisplayName}' requires Accessibility permission. "
+                + CodexMacAccessibility.AccessibilityRemediation);
         }
         else if (attempt == MacActionAttempt.Unavailable)
         {

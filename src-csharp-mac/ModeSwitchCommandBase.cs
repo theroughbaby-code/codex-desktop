@@ -25,10 +25,17 @@ public abstract class ModeSwitchCommandBase : PluginDynamicCommand
             return;
         }
 
-        var attempt = CodexMacAccessibility.TrySwitchMode(this.mode);
+        var attempt = CodexMacAccessibility.TrySwitchMode(
+            this.mode,
+            trace: message => this.Log.Info(
+                $"Mode switch action '{this.DisplayName}': {message}"));
         if (attempt == MacActionAttempt.PermissionRequired)
         {
-            attempt = CodexMacAccessibility.TrySwitchMode(this.mode, promptForPermission: true);
+            attempt = CodexMacAccessibility.TrySwitchMode(
+                this.mode,
+                promptForPermission: true,
+                trace: message => this.Log.Info(
+                    $"Mode switch action '{this.DisplayName}': {message}"));
         }
 
         if (this.mode != MacDesktopMode.Codex
@@ -36,12 +43,16 @@ public abstract class ModeSwitchCommandBase : PluginDynamicCommand
                 or MacActionAttempt.ReadyForKeyboardFallback
                 or MacActionAttempt.Unavailable))
         {
+            this.Log.Info(
+                $"Mode switch action '{this.DisplayName}' is opening the exact command-menu fallback.");
             this.Plugin.ClientApplication.SendKeyboardShortcut(
                 VirtualKeyCode.KeyK,
                 ModifierKey.ControlOrCommand);
             attempt = CodexMacAccessibility.TryInvokeModeCommand(
                 this.mode,
-                TimeSpan.FromMilliseconds(1500));
+                TimeSpan.FromMilliseconds(2000));
+            this.Log.Info(
+                $"Mode switch action '{this.DisplayName}' command-menu fallback completed with {attempt}.");
         }
 
         if (attempt == MacActionAttempt.AlreadyActive)
@@ -64,7 +75,8 @@ public abstract class ModeSwitchCommandBase : PluginDynamicCommand
 
         this.Log.Warning(
             attempt == MacActionAttempt.PermissionRequired
-                ? $"Mode switch action '{this.DisplayName}' requires Accessibility permission for LogiPluginService."
+                ? $"Mode switch action '{this.DisplayName}' requires Accessibility permission. "
+                    + CodexMacAccessibility.AccessibilityRemediation
                 : attempt == MacActionAttempt.Unavailable
                     ? $"Mode switch action '{this.DisplayName}' found an exact mode control, but could not verify the requested mode."
                     : $"Mode switch action '{this.DisplayName}' found no exact accessible mode control.");

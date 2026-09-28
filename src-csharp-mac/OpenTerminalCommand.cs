@@ -8,7 +8,7 @@ public sealed class OpenTerminalCommand : ShortcutCommandBase
             "Opens or closes the integrated terminal.",
             "Panels",
             '`',
-            ModifierKey.ControlOrCommand)
+            ModifierKey.Control)
     {
     }
 }

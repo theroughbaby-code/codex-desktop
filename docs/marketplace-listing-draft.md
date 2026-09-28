@@ -24,7 +24,7 @@ The same plugin package installs the native Windows or macOS assembly for the cu
 
 Usage status reads rate-limit information from the user's locally installed Codex CLI session. The plugin contains no analytics or external telemetry service and does not upload or persist credentials, access tokens, approval text, or chat contents.
 
-On macOS, Logi Plugin Service needs Accessibility permission for state-aware controls. Usage status requires the Codex CLI and a one-time `codex login` on each computer.
+On macOS, **LogiPluginService** needs Accessibility permission for state-aware controls and mode switching; ChatGPT itself does not. The plugin requests access on first use. If macOS suppresses the prompt after an earlier denial, enable `/Applications/Utilities/LogiPluginService.app` manually under **System Settings > Privacy & Security > Accessibility**, restart Logi Options+, and retry. Usage status requires the Codex CLI and a one-time `codex login` on each computer.
 
 ## Submission assets
 
@@ -47,5 +47,5 @@ On macOS, Logi Plugin Service needs Accessibility permission for state-aware con
 - Marketplace account/developer identity
 - Developer EULA acceptance
 - Final screenshots and banner URLs/files
-- Verified universal `CodexDesktop-1.1.16.lplug4`
+- Verified universal `CodexDesktop-1.1.17.lplug4`
 - Windows and macOS validation notes from physical MX Creative Keypad testing

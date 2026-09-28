@@ -6,8 +6,16 @@ internal static class CodexMacAccessibility
 {
     private const Int32 MaximumDepth = 42;
     private const Int32 MaximumNodesPerWindow = 7000;
+    private static readonly TimeSpan ProductTransitionTimeout =
+        TimeSpan.FromMilliseconds(3200);
+    private static readonly TimeSpan ComposerTransitionTimeout =
+        TimeSpan.FromMilliseconds(2400);
 
     internal const String BundleIdentifier = "com.openai.codex";
+    internal const String AccessibilityRemediation =
+        "Open System Settings > Privacy & Security > Accessibility, enable LogiPluginService "
+        + "(add /Applications/Utilities/LogiPluginService.app with + if missing; ChatGPT is not sufficient), "
+        + "then quit and reopen Logi Options+.";
 
     private enum ApprovalRole
     {
@@ -132,10 +140,12 @@ internal static class CodexMacAccessibility
 
     public static MacActionAttempt TrySwitchMode(
         MacDesktopMode mode,
-        Boolean promptForPermission = false)
+        Boolean promptForPermission = false,
+        Action<String>? trace = null)
     {
         if (!MacAccessibilityNative.IsTrusted(promptForPermission))
         {
+            trace?.Invoke("Accessibility permission is unavailable.");
             return MacActionAttempt.PermissionRequired;
         }
 
@@ -143,20 +153,26 @@ internal static class CodexMacAccessibility
         {
             if (IsRequestedModeActive(initial, mode))
             {
+                trace?.Invoke("The requested product and composer state is already active.");
                 return MacActionAttempt.AlreadyActive;
             }
         }
 
         if (mode == MacDesktopMode.Codex)
         {
-            return TrySwitchProductMode(mode, MacProductMode.Codex);
+            trace?.Invoke("Selecting Codex from the product switcher.");
+            var codexAttempt = TrySwitchProductMode(mode, MacProductMode.Codex);
+            trace?.Invoke($"Codex product transition completed with {codexAttempt}.");
+            return codexAttempt;
         }
 
         using (var current = ScanModeControls(mode, includeProductItems: false))
         {
             if (current.ProductMode != MacProductMode.ChatSurface)
             {
+                trace?.Invoke("Selecting ChatGPT from the product switcher.");
                 var productAttempt = TrySwitchProductMode(mode, MacProductMode.ChatSurface);
+                trace?.Invoke($"ChatGPT product transition completed with {productAttempt}.");
                 if (productAttempt is not (
                     MacActionAttempt.Invoked
                     or MacActionAttempt.Clicked
@@ -165,9 +181,16 @@ internal static class CodexMacAccessibility
                     return productAttempt;
                 }
             }
+            else
+            {
+                trace?.Invoke("The ChatGPT product surface is already active.");
+            }
         }
 
-        return TrySelectComposerMode(mode, TimeSpan.FromMilliseconds(1500));
+        trace?.Invoke($"Selecting the {mode} composer mode on the settled ChatGPT surface.");
+        var composerAttempt = TrySelectComposerMode(mode, ComposerTransitionTimeout);
+        trace?.Invoke($"Composer selection completed with {composerAttempt}.");
+        return composerAttempt;
     }
 
     public static MacActionAttempt TryInvokeModeCommand(
@@ -294,14 +317,48 @@ internal static class CodexMacAccessibility
                      .OrderByDescending(item => item.IsFocusedWindow))
         {
             foundTarget = true;
-            var attempt = Invoke(target);
-            if (attempt != MacActionAttempt.Unavailable)
+            // Chromium can acknowledge AXPress while leaving the React button
+            // untouched. A verified native click on the exact, current target
+            // produces the same pointer path as the visible Stop control.
+            var attempt = ToActionAttempt(target.TryClick());
+            if (attempt == MacActionAttempt.Clicked
+                && WaitForStopToClear(TimeSpan.FromMilliseconds(650)))
             {
                 return attempt;
+            }
+
+            attempt = ToActionAttempt(target.TryPressOnly());
+            if (attempt == MacActionAttempt.Invoked
+                && WaitForStopToClear(TimeSpan.FromMilliseconds(650)))
+            {
+                return attempt;
+            }
+
+            if (target.TryFocus())
+            {
+                return MacActionAttempt.ReadyForKeyboardFallback;
             }
         }
 
         return foundTarget ? MacActionAttempt.Unavailable : MacActionAttempt.NoTarget;
+    }
+
+    private static Boolean WaitForStopToClear(TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        do
+        {
+            using var current = Scan();
+            if (current.IsTrusted && !current.HasActiveTurn)
+            {
+                return true;
+            }
+
+            Thread.Sleep(45);
+        }
+        while (stopwatch.Elapsed < timeout);
+
+        return false;
     }
 
     private static MacActionAttempt WaitForPersistentApproval()
@@ -365,7 +422,7 @@ internal static class CodexMacAccessibility
             TimeSpan.FromMilliseconds(900),
             forceNativeClick: false);
         if (IsSuccessfulAction(itemAttempt)
-            && WaitForProductMode(productMode, TimeSpan.FromMilliseconds(900)))
+            && WaitForProductMode(productMode, ProductTransitionTimeout))
         {
             return itemAttempt;
         }
@@ -378,7 +435,7 @@ internal static class CodexMacAccessibility
                 TimeSpan.FromMilliseconds(450),
                 forceNativeClick: true);
             if (clickAttempt == MacActionAttempt.Clicked
-                && WaitForProductMode(productMode, TimeSpan.FromMilliseconds(900)))
+                && WaitForProductMode(productMode, ProductTransitionTimeout))
             {
                 return clickAttempt;
             }
@@ -395,7 +452,7 @@ internal static class CodexMacAccessibility
                     TimeSpan.FromMilliseconds(900),
                     forceNativeClick: true);
                 if (clickAttempt == MacActionAttempt.Clicked
-                    && WaitForProductMode(productMode, TimeSpan.FromMilliseconds(900)))
+                    && WaitForProductMode(productMode, ProductTransitionTimeout))
                 {
                     return clickAttempt;
                 }
@@ -569,15 +626,35 @@ internal static class CodexMacAccessibility
                         searchState,
                         0,
                         budget);
+
+                    // Radix portals can be exposed beside AXWindows rather
+                    // than below AXFocusedWindow. Only use this broader root
+                    // after the focused tree failed to expose the exact dialog.
+                    if (!searchState.FoundDialog)
+                    {
+                        var applicationBudget = new ScanBudget();
+                        TraverseModeCommandDialogs(
+                            application.Handle,
+                            focusedWindow.Handle,
+                            commandTitle,
+                            candidates,
+                            searchState,
+                            0,
+                            applicationBudget);
+                    }
                 }
             }
 
             var exactTargets = candidates
                 .OrderByDescending(candidate => candidate.Score)
                 .ToArray();
-            var target = exactTargets.Length == 1
-                ? exactTargets[0]
-                : null;
+            var target = exactTargets.Length switch
+            {
+                0 => null,
+                1 => exactTargets[0],
+                _ when exactTargets[0].Score > exactTargets[1].Score => exactTargets[0],
+                _ => null,
+            };
             return new ModeCommandScan(searchState.FoundDialog, target?.Target.Clone());
         }
         finally
@@ -598,8 +675,14 @@ internal static class CodexMacAccessibility
         Int32 depth,
         ScanBudget budget)
     {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        if (depth > MaximumDepth)
         {
+            return;
+        }
+
+        if (budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            budget.WasTruncated = true;
             return;
         }
 
@@ -621,6 +704,7 @@ internal static class CodexMacAccessibility
         if (visible && exactDialogRole && exactDialogLabel)
         {
             searchState.FoundDialog = true;
+            var itemBudget = new ScanBudget();
             TraverseModeCommandItems(
                 element,
                 window,
@@ -628,11 +712,14 @@ internal static class CodexMacAccessibility
                 candidates,
                 false,
                 0,
-                budget);
+                itemBudget);
             return;
         }
 
-        MacAccessibilityNative.ForEachElement(
+        // Portalled dialogs and their list content are normally appended at
+        // the end of Chromium's AX tree. Visit the newest nodes first so long
+        // conversations cannot consume the bounded scan before the overlay.
+        MacAccessibilityNative.ForEachElementReverse(
             element,
             "AXChildren",
             child => TraverseModeCommandDialogs(
@@ -675,19 +762,26 @@ internal static class CodexMacAccessibility
             or "AXMenuItem"
             or "AXRow"
             or "AXStaticText";
+        var exactCommandLabel = HasExactLabel(labels, commandTitle)
+            || HasExactDescendantLabel(
+                element,
+                new[] { commandTitle },
+                maximumDepth: 3,
+                maximumNodes: 24);
         if (enabled
             && visible
             && currentCommandList
             && expectedRole
-            && HasExactLabel(labels, commandTitle))
+            && exactCommandLabel)
         {
             var actions = MacAccessibilityNative.ReadActionNames(element);
             if (actions.Contains("AXPress"))
             {
                 var score = role switch
                 {
-                    "AXMenuItem" or "AXListBoxOption" => 360,
-                    "AXButton" or "AXRow" => 340,
+                    "AXMenuItem" or "AXListBoxOption" => 380,
+                    "AXButton" => 360,
+                    "AXRow" => 340,
                     _ => 300,
                 };
                 candidates.Add(new ModeCommandCandidate(
@@ -758,6 +852,55 @@ internal static class CodexMacAccessibility
                         false,
                         0,
                         budget);
+
+                    // The Home composer follows the conversation viewport in
+                    // the AX tree. On long chats, find its exact labelled group
+                    // from the tail without expanding the scan budget globally.
+                    var hasRequestedComposer = candidates.Any(candidate =>
+                        candidate.Kind == ModeCandidateKind.ComposerButton
+                        && candidate.DesktopMode == requestedMode);
+                    var hasSelectedComposer = candidates.Any(candidate =>
+                        candidate.Kind == ModeCandidateKind.ComposerButton
+                        && candidate.Selected);
+                    var detectedProductMode = candidates
+                        .Where(candidate => candidate.Kind == ModeCandidateKind.ProductTrigger)
+                        .OrderByDescending(candidate => candidate.Score)
+                        .Select(candidate => candidate.ProductMode)
+                        .FirstOrDefault();
+                    var composerCanExist = requestedMode != MacDesktopMode.Codex
+                        && detectedProductMode != MacProductMode.Codex;
+                    if (composerCanExist
+                        && (!hasRequestedComposer || !hasSelectedComposer)
+                        && budget.WasTruncated)
+                    {
+                        var composerBudget = new ScanBudget();
+                        TraverseComposerControlsReverse(
+                            focusedWindow.Handle,
+                            focusedWindow.Handle,
+                            candidates,
+                            false,
+                            0,
+                            composerBudget);
+                    }
+
+                    // The open product selector is a Radix portal. macOS may
+                    // expose its AXMenu as an application child rather than a
+                    // focused-window descendant. Menu-bar branches are skipped
+                    // and candidates must remain in the window's top-left area.
+                    if (includeProductItems
+                        && !candidates.Any(candidate =>
+                            candidate.Kind == ModeCandidateKind.ProductItem))
+                    {
+                        var menuBudget = new ScanBudget();
+                        TraverseProductMenusReverse(
+                            application.Handle,
+                            focusedWindow.Handle,
+                            requestedMode,
+                            candidates,
+                            inPopupMenu: false,
+                            0,
+                            menuBudget);
+                    }
                 }
             }
 
@@ -808,8 +951,14 @@ internal static class CodexMacAccessibility
         Int32 depth,
         ScanBudget budget)
     {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        if (depth > MaximumDepth)
         {
+            return;
+        }
+
+        if (budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            budget.WasTruncated = true;
             return;
         }
 
@@ -855,6 +1004,7 @@ internal static class CodexMacAccessibility
             {
                 var productItemScore = ProductItemScore(
                     element,
+                    window,
                     requestedMode,
                     role,
                     labels);
@@ -914,6 +1064,135 @@ internal static class CodexMacAccessibility
                 budget));
     }
 
+    private static void TraverseComposerControlsReverse(
+        IntPtr element,
+        IntPtr window,
+        ICollection<ModeCandidate> candidates,
+        Boolean inComposerMode,
+        Int32 depth,
+        ScanBudget budget)
+    {
+        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            return;
+        }
+
+        budget.NodesVisited++;
+        var role = MacAccessibilityNative.ReadString(element, "AXRole");
+        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
+        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
+        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
+        var value = MacAccessibilityNative.ReadString(element, "AXValue");
+        var labels = new[] { title, description, help, value };
+        var currentComposerMode = inComposerMode
+            || (role == "AXGroup" && HasExactLabel(labels, "Composer mode"));
+        var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
+        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
+            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
+        var composerMode = currentComposerMode && visible
+            ? ParseComposerButtonMode(role, labels)
+            : null;
+        if (composerMode.HasValue)
+        {
+            var selected = MacAccessibilityNative.ReadInteger(element, "AXValue") == 1
+                || MacAccessibilityNative.ReadBoolean(element, "AXValue") == true
+                || MacAccessibilityNative.ReadBoolean(element, "AXSelected") == true;
+            candidates.Add(new ModeCandidate(
+                new MacAxTarget(
+                    element,
+                    window,
+                    role,
+                    true,
+                    FirstText(title, description, help, value)),
+                ModeCandidateKind.ComposerButton,
+                300,
+                null,
+                composerMode,
+                selected,
+                enabled));
+        }
+
+        MacAccessibilityNative.ForEachElementReverse(
+            element,
+            "AXChildren",
+            child => TraverseComposerControlsReverse(
+                child,
+                window,
+                candidates,
+                currentComposerMode,
+                depth + 1,
+                budget));
+    }
+
+    private static void TraverseProductMenusReverse(
+        IntPtr element,
+        IntPtr window,
+        MacDesktopMode requestedMode,
+        ICollection<ModeCandidate> candidates,
+        Boolean inPopupMenu,
+        Int32 depth,
+        ScanBudget budget)
+    {
+        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            return;
+        }
+
+        budget.NodesVisited++;
+        var role = MacAccessibilityNative.ReadString(element, "AXRole");
+        if (role == "AXMenuBar")
+        {
+            return;
+        }
+
+        var currentPopupMenu = inPopupMenu || role == "AXMenu";
+        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
+        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
+        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
+        var value = MacAccessibilityNative.ReadString(element, "AXValue");
+        var labels = new[] { title, description, help, value };
+        var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
+        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
+            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
+        if (currentPopupMenu && enabled && visible)
+        {
+            var score = ProductItemScore(
+                element,
+                window,
+                requestedMode,
+                role,
+                labels);
+            if (score > 0)
+            {
+                candidates.Add(new ModeCandidate(
+                    new MacAxTarget(
+                        element,
+                        window,
+                        role,
+                        true,
+                        FirstText(title, description, help, value)),
+                    ModeCandidateKind.ProductItem,
+                    score,
+                    null,
+                    null,
+                    false,
+                    true));
+            }
+        }
+
+        MacAccessibilityNative.ForEachElementReverse(
+            element,
+            "AXChildren",
+            child => TraverseProductMenusReverse(
+                child,
+                window,
+                requestedMode,
+                candidates,
+                currentPopupMenu,
+                depth + 1,
+                budget));
+    }
+
     private static Int32 ProductTriggerScore(
         IntPtr element,
         IntPtr window,
@@ -922,7 +1201,7 @@ internal static class CodexMacAccessibility
         out MacProductMode? productMode)
     {
         productMode = null;
-        if (role is not ("AXMenuButton" or "AXPopUpButton")
+        if (role is not ("AXButton" or "AXMenuButton" or "AXPopUpButton")
             || !MacAccessibilityNative.IsNearWindowTopLeft(element, window))
         {
             return 0;
@@ -945,11 +1224,13 @@ internal static class CodexMacAccessibility
 
     private static Int32 ProductItemScore(
         IntPtr element,
+        IntPtr window,
         MacDesktopMode requestedMode,
         String role,
         IEnumerable<String> labels)
     {
-        if (role is not ("AXMenuItem" or "AXRadioButton"))
+        if (role is not ("AXMenuItem" or "AXRadioButton")
+            || !MacAccessibilityNative.IsNearWindowTopLeft(element, window))
         {
             return 0;
         }
@@ -1146,14 +1427,318 @@ internal static class CodexMacAccessibility
             budget);
 
         var result = builder.Build();
-        if (result.Approval is not null)
+        var approval = result.Approval;
+        MacApprovalSurface? secondaryApproval = null;
+        if (budget.WasTruncated)
         {
-            approvals.Add(result.Approval);
+            // Chromium appends the newest conversation and approval card near
+            // the end of the AX tree. A long conversation can consume the
+            // forward scan budget before that visible card is reached.
+            var reverseApprovalBuilder = new WindowScanBuilder(isFocusedWindow);
+            var reverseApprovalBudget = new ScanBudget();
+            TraverseApprovalTargetsReverse(
+                window,
+                window,
+                isFocusedWindow,
+                reverseApprovalBuilder,
+                String.Empty,
+                false,
+                0,
+                reverseApprovalBudget);
+            var reverseApproval = reverseApprovalBuilder.Build().Approval;
+            if (reverseApproval is not null)
+            {
+                if (CoversApprovalRoles(reverseApproval, approval))
+                {
+                    approval?.Dispose();
+                }
+                else
+                {
+                    // Keep disjoint partial coverage as a second exact surface.
+                    // Invocation prefers the latest-first reverse result, then
+                    // falls back to the still-current forward target by role.
+                    secondaryApproval = approval;
+                }
+
+                approval = reverseApproval;
+            }
         }
 
-        foreach (var stop in result.StopTargets)
+        if (approval is not null)
+        {
+            approvals.Add(approval);
+        }
+
+        if (secondaryApproval is not null)
+        {
+            approvals.Add(secondaryApproval);
+        }
+
+        var stopTargets = result.StopTargets;
+        if (budget.WasTruncated)
+        {
+            var reverseTargets = new List<MacAxTarget>();
+            var reverseBudget = new ScanBudget();
+            TraverseStopTargetsReverse(
+                window,
+                window,
+                isFocusedWindow,
+                reverseTargets,
+                String.Empty,
+                false,
+                0,
+                reverseBudget);
+            if (reverseTargets.Count > 0)
+            {
+                foreach (var stop in stopTargets)
+                {
+                    stop.Dispose();
+                }
+
+                stopTargets = reverseTargets;
+            }
+        }
+
+        foreach (var stop in stopTargets)
         {
             stops.Add(stop);
+        }
+    }
+
+    private static Boolean CoversApprovalRoles(
+        MacApprovalSurface candidate,
+        MacApprovalSurface? other)
+        => other is null
+            || (other.Approve is null || candidate.Approve is not null)
+            && (other.Persistent is null || candidate.Persistent is not null)
+            && (other.Deny is null || candidate.Deny is not null)
+            && (other.Options is null || candidate.Options is not null);
+
+    private static void TraverseApprovalTargetsReverse(
+        IntPtr element,
+        IntPtr window,
+        Boolean isFocusedWindow,
+        WindowScanBuilder builder,
+        String ancestorIdentity,
+        Boolean inApprovalSurface,
+        Int32 depth,
+        ScanBudget budget)
+    {
+        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            return;
+        }
+
+        budget.NodesVisited++;
+        var role = MacAccessibilityNative.ReadString(element, "AXRole");
+        if (role == "AXMenuBar")
+        {
+            return;
+        }
+
+        var subrole = MacAccessibilityNative.ReadString(element, "AXSubrole");
+        var identifier = MacAccessibilityNative.ReadString(element, "AXIdentifier");
+        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
+        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
+        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
+        var value = MacAccessibilityNative.ReadString(element, "AXValue");
+        var identity = JoinText(identifier, role, subrole, title, description, help, value);
+        var context = JoinContext(ancestorIdentity, identity);
+        var currentApprovalSurface = inApprovalSurface || ContainsAny(
+            identity,
+            "data-codex-approval-surface",
+            "codex-approval-surface",
+            "approval-request-card",
+            "@container/approval-card");
+        if (currentApprovalSurface)
+        {
+            builder.HasApprovalSurface = true;
+        }
+
+        if (ApprovalLabels.IsStatus(title)
+            || ApprovalLabels.IsStatus(description)
+            || ApprovalLabels.IsStatus(help)
+            || ApprovalLabels.IsStatus(value))
+        {
+            builder.HasApprovalStatus = true;
+        }
+
+        var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
+        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
+            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
+        if (enabled && visible && IsInteractiveRole(role))
+        {
+            var approvalRole = ClassifyApprovalControl(
+                element,
+                role,
+                identity,
+                title,
+                description,
+                help,
+                value,
+                out var descendantLabel);
+            if (approvalRole.HasValue)
+            {
+                builder.AddApprovalCandidate(
+                    new MacAxTarget(
+                        element,
+                        window,
+                        role,
+                        isFocusedWindow,
+                        FirstText(title, description, help, value, descendantLabel)),
+                    approvalRole,
+                    currentApprovalSurface,
+                    builder.NextReverseDocumentOrder());
+            }
+        }
+
+        MacAccessibilityNative.ForEachElementReverse(
+            element,
+            "AXChildren",
+            child => TraverseApprovalTargetsReverse(
+                child,
+                window,
+                isFocusedWindow,
+                builder,
+                context,
+                currentApprovalSurface,
+                depth + 1,
+                budget));
+    }
+
+    private static void TraverseStopTargetsReverse(
+        IntPtr element,
+        IntPtr window,
+        Boolean isFocusedWindow,
+        ICollection<MacAxTarget> stops,
+        String ancestorIdentity,
+        Boolean inComposer,
+        Int32 depth,
+        ScanBudget budget)
+    {
+        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            return;
+        }
+
+        budget.NodesVisited++;
+        var role = MacAccessibilityNative.ReadString(element, "AXRole");
+        var subrole = MacAccessibilityNative.ReadString(element, "AXSubrole");
+        var identifier = MacAccessibilityNative.ReadString(element, "AXIdentifier");
+        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
+        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
+        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
+        var value = MacAccessibilityNative.ReadString(element, "AXValue");
+        var identity = JoinText(identifier, role, subrole, title, description, help, value);
+        var context = JoinContext(ancestorIdentity, identity);
+        var currentComposer = inComposer || ContainsAny(
+            identity,
+            "composer",
+            "prompt-textarea",
+            "chat-input",
+            "message-input");
+        var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
+        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
+            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
+        if (enabled && visible && IsInteractiveRole(role))
+        {
+            var stableStopIdentity = ContainsAny(
+                identity,
+                "composer-stop",
+                "stop-composer",
+                "stop-response",
+                "stop-generating",
+                "stop-turn",
+                "interrupt-turn",
+                "interrupt-response");
+            var exactStopLabel = StopLabels.IsStop(title)
+                || StopLabels.IsStop(description)
+                || StopLabels.IsStop(help)
+                || StopLabels.IsStop(value);
+            var excludedContext = ContainsAny(
+                context,
+                "voice",
+                "audio",
+                "recording",
+                "dictation",
+                "trace");
+            var descendantStopLabel = !stableStopIdentity
+                && !exactStopLabel
+                && role == "AXButton"
+                && !excludedContext
+                && (currentComposer
+                    || MacAccessibilityNative.IsNearWindowBottomComposer(element, window))
+                && HasStopDescendantLabel(element, 3, 24);
+            if (stableStopIdentity
+                || (exactStopLabel && (currentComposer || !excludedContext))
+                || descendantStopLabel)
+            {
+                stops.Add(new MacAxTarget(
+                    element,
+                    window,
+                    role,
+                    isFocusedWindow,
+                    FirstText(title, description, help, value)));
+            }
+        }
+
+        MacAccessibilityNative.ForEachElementReverse(
+            element,
+            "AXChildren",
+            child => TraverseStopTargetsReverse(
+                child,
+                window,
+                isFocusedWindow,
+                stops,
+                context,
+                currentComposer,
+                depth + 1,
+                budget));
+    }
+
+    private static Boolean HasStopDescendantLabel(
+        IntPtr element,
+        Int32 maximumDepth,
+        Int32 maximumNodes)
+    {
+        var visited = 0;
+        return Find(element, 0);
+
+        Boolean Find(IntPtr current, Int32 depth)
+        {
+            if (depth >= maximumDepth || visited >= maximumNodes)
+            {
+                return false;
+            }
+
+            var found = false;
+            MacAccessibilityNative.ForEachElementReverse(
+                current,
+                "AXChildren",
+                child =>
+                {
+                    if (found || visited++ >= maximumNodes)
+                    {
+                        return;
+                    }
+
+                    if (IsInteractiveRole(
+                            MacAccessibilityNative.ReadString(child, "AXRole")))
+                    {
+                        return;
+                    }
+
+                    found = StopLabels.IsStop(
+                            MacAccessibilityNative.ReadString(child, "AXTitle"))
+                        || StopLabels.IsStop(
+                            MacAccessibilityNative.ReadString(child, "AXDescription"))
+                        || StopLabels.IsStop(
+                            MacAccessibilityNative.ReadString(child, "AXHelp"))
+                        || StopLabels.IsStop(
+                            MacAccessibilityNative.ReadString(child, "AXValue"))
+                        || Find(child, depth + 1);
+                });
+            return found;
         }
     }
 
@@ -1168,8 +1753,14 @@ internal static class CodexMacAccessibility
         Int32 depth,
         ScanBudget budget)
     {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        if (depth > MaximumDepth)
         {
+            return;
+        }
+
+        if (budget.NodesVisited >= MaximumNodesPerWindow)
+        {
+            budget.WasTruncated = true;
             return;
         }
 
@@ -1214,12 +1805,15 @@ internal static class CodexMacAccessibility
             && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
         if (enabled && visible && IsInteractiveRole(role))
         {
-            var approvalRole = ClassifyApprovalRole(
+            var approvalRole = ClassifyApprovalControl(
+                element,
+                role,
                 identity,
                 title,
                 description,
                 help,
-                value);
+                value,
+                out var descendantApprovalLabel);
             if (approvalRole.HasValue || currentApprovalSurface)
             {
                 builder.AddApprovalCandidate(
@@ -1228,7 +1822,12 @@ internal static class CodexMacAccessibility
                         window,
                         role,
                         isFocusedWindow,
-                        FirstText(title, description, help)),
+                        FirstText(
+                            title,
+                            description,
+                            help,
+                            value,
+                            descendantApprovalLabel)),
                     approvalRole,
                     currentApprovalSurface,
                     builder.NextDocumentOrder());
@@ -1254,7 +1853,16 @@ internal static class CodexMacAccessibility
                 "recording",
                 "dictation",
                 "trace");
-            if (stableStopIdentity || (stopLabel && (currentComposer || !excludedContext)))
+            var descendantStopLabel = !stableStopIdentity
+                && !stopLabel
+                && role == "AXButton"
+                && !excludedContext
+                && (currentComposer
+                    || MacAccessibilityNative.IsNearWindowBottomComposer(element, window))
+                && HasStopDescendantLabel(element, 3, 24);
+            if (stableStopIdentity
+                || (stopLabel && (currentComposer || !excludedContext))
+                || descendantStopLabel)
             {
                 builder.AddStopTarget(
                     new MacAxTarget(
@@ -1332,6 +1940,91 @@ internal static class CodexMacAccessibility
         return null;
     }
 
+    private static ApprovalRole? ClassifyApprovalControl(
+        IntPtr element,
+        String role,
+        String identity,
+        String title,
+        String description,
+        String help,
+        String value,
+        out String descendantLabel)
+    {
+        descendantLabel = String.Empty;
+        var directRole = ClassifyApprovalRole(identity, title, description, help, value);
+        if (directRole.HasValue || !CanUseDescendantApprovalLabel(role))
+        {
+            return directRole;
+        }
+
+        return FindDescendantApprovalRole(element, 3, 24, out descendantLabel);
+    }
+
+    private static ApprovalRole? FindDescendantApprovalRole(
+        IntPtr element,
+        Int32 maximumDepth,
+        Int32 maximumNodes,
+        out String accessibleLabel)
+    {
+        var visited = 0;
+        var roles = new HashSet<ApprovalRole>();
+        var foundLabel = String.Empty;
+        Find(element, 0);
+        accessibleLabel = roles.Count == 1 ? foundLabel : String.Empty;
+        return roles.Count == 1 ? roles.Single() : null;
+
+        void Find(IntPtr current, Int32 depth)
+        {
+            if (depth >= maximumDepth || visited >= maximumNodes)
+            {
+                return;
+            }
+
+            MacAccessibilityNative.ForEachElementReverse(
+                current,
+                "AXChildren",
+                child =>
+                {
+                    if (visited++ >= maximumNodes)
+                    {
+                        return;
+                    }
+
+                    var childRole = MacAccessibilityNative.ReadString(child, "AXRole");
+                    if (IsInteractiveRole(childRole))
+                    {
+                        // Do not promote an outer split/menu control from the
+                        // labels of a different clickable descendant.
+                        return;
+                    }
+
+                    var labels = new[]
+                    {
+                        MacAccessibilityNative.ReadString(child, "AXTitle"),
+                        MacAccessibilityNative.ReadString(child, "AXDescription"),
+                        MacAccessibilityNative.ReadString(child, "AXHelp"),
+                        MacAccessibilityNative.ReadString(child, "AXValue"),
+                    };
+                    var role = ClassifyApprovalRole(labels);
+                    if (role.HasValue)
+                    {
+                        roles.Add(role.Value);
+                        foundLabel = roles.Count == 1
+                            ? FirstText(labels)
+                            : String.Empty;
+                    }
+
+                    Find(child, depth + 1);
+                });
+        }
+    }
+
+    private static Boolean CanUseDescendantApprovalLabel(String role)
+        => role is "AXButton"
+            or "AXMenuButton"
+            or "AXMenuItem"
+            or "AXPopUpButton";
+
     private static IReadOnlyList<Int32> GetCodexProcessIds()
     {
         var processIds = new HashSet<Int32>();
@@ -1385,6 +2078,8 @@ internal static class CodexMacAccessibility
     private sealed class ScanBudget
     {
         public Int32 NodesVisited { get; set; }
+
+        public Boolean WasTruncated { get; set; }
     }
 
     private sealed record ApprovalCandidate(
@@ -1486,6 +2181,8 @@ internal static class CodexMacAccessibility
         public Boolean HasApprovalStatus { get; set; }
 
         public Int32 NextDocumentOrder() => this.documentOrder++;
+
+        public Int32 NextReverseDocumentOrder() => -this.documentOrder++;
 
         public void AddApprovalCandidate(
             MacAxTarget target,

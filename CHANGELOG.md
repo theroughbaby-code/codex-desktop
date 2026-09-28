@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.17 - 2026-09-28 (release candidate)
+
+- Corrected recent-chat navigation, Review, Terminal, and the adjacent affected tab actions to send ChatGPT's physical Control shortcuts on macOS instead of Command shortcuts that switch applications or windows.
+- Extended GPT, Work, and Codex switching for Electron's measured surface transition delay and added latest-first scans for rebuilt composer controls, product menus, and exact command-menu results.
+- Made Stop Thinking search the newest composer controls first and verify that the active turn ends before reporting a native click as successful.
+- Made Approve and Deny recognize exact labels exposed only by child accessibility nodes and scan the newest approval card first in long conversations.
+- Added the macOS Accessibility prompt path and explicit setup instructions for `/Applications/Utilities/LogiPluginService.app`; ChatGPT itself does not require this permission.
+
 ## 1.1.16 - 2026-09-28 (release candidate)
 
 - Made Switch to GPT, Switch to Work, and Switch to Codex drive the visible macOS product and composer controls through Accessibility, with an exact command-menu fallback when an existing conversation does not expose the Home composer toggle.

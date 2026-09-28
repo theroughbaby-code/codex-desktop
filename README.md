@@ -2,20 +2,21 @@
 
 **A Logitech MX Creative Keypad plugin for controlling ChatGPT and Codex Desktop on Windows and macOS through Logi Options+.**
 
-- Current release candidate: **1.1.16**
+- Current release candidate: **1.1.17**
 - Platforms: **Windows and macOS**
 - Release artifact: **one universal `.lplug4` package**
 - Device profile: **Logitech MX Creative Keypad**
 - Project: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
 - Support: [GitHub issues](https://github.com/theroughbaby-code/codex-desktop/issues)
 
-## 1.1.16 release candidate
+## 1.1.17 release candidate
 
-- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.16.lplug4` archive.
+- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.17.lplug4` archive.
 - Adds native macOS shortcut dispatch, application activation, approval controls, model selection, Stop Thinking, and Codex usage status.
-- Selects GPT, Work, or Codex through the visible macOS product and composer controls, with an exact app command-menu fallback when a restored conversation has no Home composer toggle; Windows retains `Alt+1/2/3`.
+- Sends the physical Control shortcuts registered by ChatGPT for recent-chat navigation, Review, and Terminal instead of macOS application-switching shortcuts.
+- Waits for delayed ChatGPT/Codex product transitions, then selects GPT or Work from the rebuilt composer or its exact command-menu entry.
 - Opens the macOS model selector through its accessible control first and uses the app's literal `Control+Shift+M` binding as fallback.
-- Activates ChatGPT and reacquires live macOS approval and Stop Thinking controls before invoking them, with a native center click when Electron omits a usable press action.
+- Finds the newest approval and Stop Thinking controls first in long conversations and verifies Stop after a native click before reporting success.
 - Uses each operating system's local accessibility API for state-aware actions and reacquires the actionable control after bringing Codex to the foreground.
 - Reads Codex usage through the user's locally installed Codex CLI session on both platforms.
 
@@ -25,7 +26,18 @@ The same `.lplug4` archive is used on Windows and macOS. During release validati
 
 Open ChatGPT/Codex Desktop after installation. The included nine-action Keypad profile is bound to the desktop application.
 
-Usage status requires the Codex CLI and a one-time `codex login` on each computer. On macOS, grant **Logi Plugin Service** access under **System Settings > Privacy & Security > Accessibility** for actions that inspect or invoke visible Codex controls.
+Usage status requires the Codex CLI and a one-time `codex login` on each computer.
+
+### macOS Accessibility setup
+
+Approve, Always approve, Deny, Stop Thinking, Open model picker, and the GPT/Work/Codex mode actions inspect visible controls through macOS Accessibility. The process that needs permission is **LogiPluginService**, not ChatGPT.
+
+1. Press one of those actions once. macOS should show an Accessibility prompt for **LogiPluginService**; choose **Open System Settings** and enable it.
+2. If macOS does not show the prompt, open **System Settings > Privacy & Security > Accessibility**.
+3. Enable **LogiPluginService**. If it is missing, click **+**, press **Command+Shift+G**, enter `/Applications/Utilities/LogiPluginService.app`, and choose **Open**.
+4. Quit and reopen Logi Options+ after changing the permission, then open ChatGPT/Codex Desktop and retry the action.
+
+Adding ChatGPT to the Accessibility list does not grant the plugin access because LogiPluginService is the process that performs the action.
 
 ## Actions
 
@@ -55,7 +67,7 @@ Usage status starts the locally installed `codex app-server` process and request
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.1.16
+- Version: 1.1.17
 - Plugin type: Cross-platform application plugin
 - Runtimes: C# assemblies in `win/` and `mac/`
 - Target device: MX Creative Console Keypad through Logi Options+

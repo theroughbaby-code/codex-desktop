@@ -45,10 +45,17 @@ public sealed class OpenModelPickerCommand : PluginDynamicCommand
         this.Plugin.ClientApplication.SendKeyboardShortcut(
             VirtualKeyCode.KeyM,
             ModifierKey.Control | ModifierKey.Shift);
-        this.Log.Info(
-            attempt == MacActionAttempt.PermissionRequired
-                ? "Open model picker sent Control+Shift+M because Accessibility permission is unavailable."
-                : "Open model picker sent Control+Shift+M because no usable accessible model control was found.");
+        if (attempt == MacActionAttempt.PermissionRequired)
+        {
+            this.Log.Warning(
+                "Open model picker sent Control+Shift+M because Accessibility permission is unavailable. "
+                + CodexMacAccessibility.AccessibilityRemediation);
+        }
+        else
+        {
+            this.Log.Info(
+                "Open model picker sent Control+Shift+M because no usable accessible model control was found.");
+        }
     }
 
     private Boolean ActivateCodex()

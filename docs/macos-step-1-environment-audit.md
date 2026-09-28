@@ -33,7 +33,7 @@ The command writes JSON and Markdown reports to `output/macos-audit/`. The repor
 
 The following checks require the Mac UI and are intentionally not automated:
 
-1. Open **System Settings > Privacy & Security > Accessibility** and record whether Logi Plugin Service is listed and enabled.
+1. Press a state-aware plugin action once and confirm macOS prompts for **LogiPluginService**. If it does not, open **System Settings > Privacy & Security > Accessibility**, enable **LogiPluginService**, or add `/Applications/Utilities/LogiPluginService.app` with the **+** button. ChatGPT itself is not the requesting process. Restart Logi Options+ after changing the permission.
 2. In Logi Options+, create or export a minimal profile adapted to ChatGPT. Keep its `.lp5` file with the generated report.
 3. Confirm that bringing ChatGPT to the foreground causes Options+ to select the ChatGPT application profile.
 4. After the first Mac test plugin is generated, install it with `LogiPluginTool` and confirm one basic shortcut action reaches ChatGPT.

@@ -22,8 +22,11 @@ public abstract class ShortcutCommandBase : PluginDynamicCommand
 
     protected override void RunCommand(String actionParameter)
     {
+        this.Log.Info($"Shortcut action '{this.DisplayName}' triggered.");
         if (!this.EnsureApplicationIsActive())
         {
+            this.Log.Warning(
+                $"Shortcut action '{this.DisplayName}' could not activate ChatGPT/Codex Desktop.");
             return;
         }
 
@@ -35,6 +38,12 @@ public abstract class ShortcutCommandBase : PluginDynamicCommand
         {
             this.Plugin.ClientApplication.SendKeyboardShortcut(this.key.Value, this.modifiers);
         }
+
+        var input = this.character.HasValue
+            ? $"character '{this.character.Value}'"
+            : $"key '{this.key}'";
+        this.Log.Info(
+            $"Shortcut action '{this.DisplayName}' dispatched {input} with modifiers '{this.modifiers}'.");
     }
 
     private Boolean EnsureApplicationIsActive()
@@ -45,11 +54,12 @@ public abstract class ShortcutCommandBase : PluginDynamicCommand
         }
 
         this.Plugin.ClientApplication.Activate();
-        for (var attempt = 0; attempt < 10; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
-            Thread.Sleep(20);
+            Thread.Sleep(25);
             if (this.Plugin.IsApplicationActive())
             {
+                Thread.Sleep(75);
                 return true;
             }
         }

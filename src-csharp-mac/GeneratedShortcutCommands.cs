@@ -84,7 +84,7 @@ public sealed class ForwardCommand : ShortcutCommandBase
 public sealed class NextRecentlyViewedChatCommand : ShortcutCommandBase
 {
     public NextRecentlyViewedChatCommand()
-        : base("Next recently viewed chat", "Moves to the next recently viewed chat.", "Navigation", VirtualKeyCode.Tab, ModifierKey.ControlOrCommand)
+        : base("Next recently viewed chat", "Moves to the next recently viewed chat.", "Navigation", VirtualKeyCode.Tab, ModifierKey.Control)
     {
     }
 }
@@ -116,7 +116,7 @@ public sealed class NextChatNeedingAttentionCommand : ShortcutCommandBase
 public sealed class PreviousRecentlyViewedChatCommand : ShortcutCommandBase
 {
     public PreviousRecentlyViewedChatCommand()
-        : base("Previous recently viewed chat", "Moves to the previous recently viewed chat.", "Navigation", VirtualKeyCode.Tab, ModifierKey.ControlOrCommand | ModifierKey.Shift)
+        : base("Previous recently viewed chat", "Moves to the previous recently viewed chat.", "Navigation", VirtualKeyCode.Tab, ModifierKey.Control | ModifierKey.Shift)
     {
     }
 }
@@ -124,7 +124,7 @@ public sealed class PreviousRecentlyViewedChatCommand : ShortcutCommandBase
 public sealed class PreviousTabCommand : ShortcutCommandBase
 {
     public PreviousTabCommand()
-        : base("Previous tab", "Moves to the previous open tab.", "Navigation", VirtualKeyCode.Tab, ModifierKey.ControlOrCommand | ModifierKey.Shift)
+        : base("Previous tab", "Moves to the previous open tab.", "Navigation", VirtualKeyCode.Tab, ModifierKey.Control | ModifierKey.Shift)
     {
     }
 }
@@ -228,7 +228,7 @@ public sealed class OpenBrowserTabCommand : ShortcutCommandBase
 public sealed class OpenReviewTabCommand : ShortcutCommandBase
 {
     public OpenReviewTabCommand()
-        : base("Open review tab", "Opens a review tab.", "Panels", VirtualKeyCode.KeyG, ModifierKey.ControlOrCommand | ModifierKey.Shift)
+        : base("Open review tab", "Opens a review tab.", "Panels", VirtualKeyCode.KeyG, ModifierKey.Control | ModifierKey.Shift)
     {
     }
 }
