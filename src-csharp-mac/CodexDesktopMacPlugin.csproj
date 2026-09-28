@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>CodexDesktopPlugin</AssemblyName>
+    <RootNamespace>Loupedeck.CodexDesktopPlugin</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <Target Name="RequirePluginApiDir" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(PluginApiDir)' == ''" Text="PluginApiDir must be set to a directory containing PluginApi.dll. Use npm run build:mac-smoke so the local LogiPluginTool SDK path is resolved automatically." />
+    <Error Condition="!Exists('$(PluginApiDir)PluginApi.dll')" Text="PluginApi.dll was not found at $(PluginApiDir)PluginApi.dll." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="PluginApi">
+      <HintPath>$(PluginApiDir)PluginApi.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

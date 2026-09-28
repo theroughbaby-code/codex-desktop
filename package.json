@@ -1,11 +1,12 @@
 {
   "name": "codex-desktop",
-  "version": "1.1.9",
-  "description": "Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.",
+  "version": "1.1.10",
+  "description": "Controls ChatGPT and Codex Desktop on Windows and macOS from Logitech MX Creative Keypad.",
   "type": "module",
   "scripts": {
     "audit:mac": "node scripts/audit-macos-environment.mjs",
     "build": "npm run generate:plugin-icon && node scripts/generate-csharp-shortcuts.mjs && node scripts/verify-default-profile.mjs && node scripts/compile-csharp-plugin.mjs && node scripts/build-csharp-package.mjs",
+    "build:mac-smoke": "node scripts/build-mac-smoke-package.mjs",
     "build:pack": "npm run build && node scripts/verify-standalone-package.mjs",
     "build:prod": "npm run build",
     "doctor": "node scripts/doctor.mjs",
@@ -14,6 +15,7 @@
     "generate:profile": "node scripts/generate-default-profile.mjs",
     "generate:runtime-images": "node scripts/generate-runtime-state-images.mjs",
     "pack": "npm run build:pack",
+    "pack:universal": "node scripts/pack-universal-package.mjs",
     "test:approval-uia": "pwsh -NoProfile -File tests/run-approval-uia-tests.ps1",
     "test:stop-uia": "pwsh -NoProfile -File tests/run-stop-uia-tests.ps1",
     "test:uia": "npm run test:approval-uia && npm run test:stop-uia",

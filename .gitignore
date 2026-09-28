@@ -7,5 +7,10 @@ package-lock.json
 src-csharp/bin/
 src-csharp/obj/
 src-csharp/resources/generated/
+src-csharp-mac/bin/
+src-csharp-mac/obj/
+dist-mac-smoke/
+dist-universal/
+artifacts/
 output/
 tmp/

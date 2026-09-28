@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 
@@ -19,6 +19,15 @@ for (const directory of ['metadata', 'actionicons', 'actionsymbols', 'assets', '
     await cp(source, path.join(distPath, directory), { recursive: true });
   }
 }
+
+await cp(path.join(root, 'LICENSE'), path.join(distPath, 'LICENSE'));
+
+const metadataPath = path.join(distPath, 'metadata', 'LoupedeckPackage.yaml');
+let metadata = await readFile(metadataPath, 'utf8');
+metadata = metadata
+  .replace(/^description:.*$/m, 'description: Controls ChatGPT and Codex Desktop on Windows from Logitech MX Creative Keypad.')
+  .replace(/^pluginFolderMac:.*\r?\n?/m, '');
+await writeFile(metadataPath, metadata);
 
 const windowsOutputPath = path.join(distPath, 'win');
 await mkdir(windowsOutputPath, { recursive: true });

@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const directoriesToScan = ['package', 'dist'];
+const directoriesToScan = ['package', 'dist', 'dist-universal'];
 const findings = [];
 const workspacePath = root.toLowerCase();
 const workspacePathForward = workspacePath.replaceAll('\\', '/');
