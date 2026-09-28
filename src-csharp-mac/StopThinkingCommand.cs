@@ -61,11 +61,15 @@ public sealed class StopThinkingCommand : PluginDynamicCommand
         }
         else if (attempt == MacActionAttempt.Unavailable)
         {
-            this.Log.Warning("Stop thinking found a matching control, but it was unavailable.");
+            this.Log.Warning(
+                "Stop thinking found a matching control, but it was unavailable. "
+                + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
         }
         else
         {
-            this.Log.Warning("Stop thinking found no accessible active response control.");
+            this.Log.Warning(
+                "Stop thinking found no accessible active response control. "
+                + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
         }
 
         CodexMacStateMonitor.RefreshSoon();

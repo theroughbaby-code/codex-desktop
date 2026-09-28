@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.18 - 2026-09-28 (release candidate)
+
+- Made the macOS plugin activate ChatGPT's web accessibility tree itself before scanning, so clean customer Macs do not depend on VoiceOver, Accessibility Inspector, or other developer tools having enabled it first.
+- Added Electron's `AXManualAccessibility` request and a one-time `AXEnhancedUserInterface` fallback for Chromium-based ChatGPT releases, with per-app-launch caching and bounded readiness polling for Chromium's delayed tree construction.
+- Added raw accessibility-bootstrap results to failed action logs so QA can distinguish permission, delivery, timeout, and missing-control failures.
+
 ## 1.1.17 - 2026-09-28 (release candidate)
 
 - Corrected recent-chat navigation, Review, Terminal, and the adjacent affected tab actions to send ChatGPT's physical Control shortcuts on macOS instead of Command shortcuts that switch applications or windows.

@@ -82,11 +82,15 @@ public abstract class ApprovalCommandBase : PluginDynamicCommand
         }
         else if (attempt == MacActionAttempt.Unavailable)
         {
-            this.Log.Warning($"Approval action '{this.DisplayName}' found a pending request, but its control was unavailable.");
+            this.Log.Warning(
+                $"Approval action '{this.DisplayName}' found a pending request, but its control was unavailable. "
+                + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
         }
         else
         {
-            this.Log.Warning($"Approval action '{this.DisplayName}' found no accessible pending request after navigation.");
+            this.Log.Warning(
+                $"Approval action '{this.DisplayName}' found no accessible pending request after navigation. "
+                + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
         }
 
         CodexMacStateMonitor.RefreshSoon();

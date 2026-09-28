@@ -78,8 +78,10 @@ public abstract class ModeSwitchCommandBase : PluginDynamicCommand
                 ? $"Mode switch action '{this.DisplayName}' requires Accessibility permission. "
                     + CodexMacAccessibility.AccessibilityRemediation
                 : attempt == MacActionAttempt.Unavailable
-                    ? $"Mode switch action '{this.DisplayName}' found an exact mode control, but could not verify the requested mode."
-                    : $"Mode switch action '{this.DisplayName}' found no exact accessible mode control.");
+                    ? $"Mode switch action '{this.DisplayName}' found an exact mode control, but could not verify the requested mode. "
+                        + MacAccessibilityNative.AccessibilityBootstrapDiagnostic
+                    : $"Mode switch action '{this.DisplayName}' found no exact accessible mode control. "
+                        + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
     }
 
     private Boolean ActivateCodex()

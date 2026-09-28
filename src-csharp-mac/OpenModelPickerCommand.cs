@@ -54,7 +54,8 @@ public sealed class OpenModelPickerCommand : PluginDynamicCommand
         else
         {
             this.Log.Info(
-                "Open model picker sent Control+Shift+M because no usable accessible model control was found.");
+                "Open model picker sent Control+Shift+M because no usable accessible model control was found. "
+                + MacAccessibilityNative.AccessibilityBootstrapDiagnostic);
         }
     }
 

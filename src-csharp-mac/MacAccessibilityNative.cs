@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Loupedeck.CodexDesktopPlugin;
@@ -8,6 +9,7 @@ internal static class MacAccessibilityNative
     private const String ApplicationServices = "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices";
     private const String CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
     private const UInt32 Utf8Encoding = 0x08000100;
+    private const Int32 AxUnavailable = Int32.MinValue;
     private const Int32 AxSuccess = 0;
     private const Int32 AxCannotComplete = -25204;
     private const UInt32 AxValueCgPoint = 1;
@@ -17,6 +19,23 @@ internal static class MacAccessibilityNative
     private const UInt32 CgEventLeftMouseDown = 1;
     private const UInt32 CgEventLeftMouseUp = 2;
     private const UInt32 CgMouseButtonLeft = 0;
+    private const Int32 AccessibilityProbeMaximumDepth = 12;
+    private const Int32 AccessibilityProbeMaximumNodes = 128;
+    private const Int32 AccessibilityProbeReadyNodeCount = 20;
+    private const Int32 AccessibilityProbeReadyContentRoleCount = 3;
+    private const Int32 MaximumEnhancedAccessibilityRequests = 3;
+    private static readonly TimeSpan ManualAccessibilitySettleTime =
+        TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan EnhancedAccessibilitySettleTime =
+        TimeSpan.FromMilliseconds(3000);
+    private static readonly TimeSpan AccessibilityProbeInterval =
+        TimeSpan.FromMilliseconds(85);
+    private static readonly TimeSpan AccessibilityQuickProbeTime =
+        TimeSpan.FromMilliseconds(150);
+    private static readonly TimeSpan AccessibilityRetryCooldown =
+        TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan AccessibilityReprobeInterval =
+        TimeSpan.FromSeconds(2);
 
     private static readonly ConcurrentDictionary<String, IntPtr> NativeStrings =
         new(StringComparer.Ordinal);
@@ -24,6 +43,10 @@ internal static class MacAccessibilityNative
         new(() => NativeLibrary.Load(ApplicationServices));
     private static readonly Lazy<IntPtr> CoreFoundationHandle =
         new(() => NativeLibrary.Load(CoreFoundation));
+    private static readonly ConcurrentDictionary<ProcessIdentity, AccessibilityBootstrapState>
+        AccessibilityBootstrapStates = new();
+    private static String accessibilityBootstrapDiagnostic =
+        "AX bootstrap has not run for this plugin process.";
 
     public static Boolean IsTrusted(Boolean prompt)
     {
@@ -75,22 +98,37 @@ internal static class MacAccessibilityNative
 
     public static MacAxElement? CreateApplication(Int32 processId)
     {
+        var handle = IntPtr.Zero;
         try
         {
-            var handle = AXUIElementCreateApplication(processId);
+            handle = AXUIElementCreateApplication(processId);
             if (handle == IntPtr.Zero)
             {
                 return null;
             }
 
             _ = AXUIElementSetMessagingTimeout(handle, 0.35F);
-            return new MacAxElement(handle);
+            EnsureAccessibilityTree(processId, handle);
+            var application = new MacAxElement(handle);
+            handle = IntPtr.Zero;
+            return application;
         }
         catch
         {
+            try
+            {
+                Release(handle);
+            }
+            catch
+            {
+            }
+
             return null;
         }
     }
+
+    public static String AccessibilityBootstrapDiagnostic
+        => Volatile.Read(ref accessibilityBootstrapDiagnostic);
 
     public static MacAxElement RetainElement(IntPtr element)
         => new(CFRetain(element));
@@ -320,18 +358,7 @@ internal static class MacAccessibilityNative
     }
 
     public static Boolean TrySetTrue(IntPtr element, String attribute)
-    {
-        try
-        {
-            var trueValue = ReadGlobalReference(CoreFoundationHandle.Value, "kCFBooleanTrue");
-            return trueValue != IntPtr.Zero
-                && AXUIElementSetAttributeValue(element, NativeString(attribute), trueValue) == AxSuccess;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+        => SetTrue(element, attribute) == AxSuccess;
 
     public static Boolean TryClickCenter(IntPtr element)
     {
@@ -504,6 +531,394 @@ internal static class MacAccessibilityNative
         }
     }
 
+    private static void EnsureAccessibilityTree(Int32 processId, IntPtr application)
+    {
+        if (!IsTrusted(false))
+        {
+            return;
+        }
+
+        var identity = ReadProcessIdentity(processId);
+        var candidateState = new AccessibilityBootstrapState();
+        var state = AccessibilityBootstrapStates.GetOrAdd(
+            identity,
+            candidateState);
+        if (ReferenceEquals(state, candidateState))
+        {
+            foreach (var staleIdentity in AccessibilityBootstrapStates.Keys)
+            {
+                if (staleIdentity != identity
+                    && (staleIdentity.ProcessId == processId
+                        || !IsSameRunningProcess(staleIdentity)))
+                {
+                    _ = AccessibilityBootstrapStates.TryRemove(staleIdentity, out _);
+                }
+            }
+        }
+
+        if (state.TreeReady && state.RequestsExhausted)
+        {
+            return;
+        }
+
+        lock (state.Gate)
+        {
+            if (state.TreeReady && state.RequestsExhausted)
+            {
+                return;
+            }
+
+            if (state.RequestsExhausted)
+            {
+                if (DateTime.UtcNow >= state.NextReadinessProbeAtUtc)
+                {
+                    state.TreeReady = ProbeForRichAccessibilityTree(
+                        application,
+                        AccessibilityQuickProbeTime);
+                    state.NextReadinessProbeAtUtc =
+                        DateTime.UtcNow + AccessibilityReprobeInterval;
+                    if (state.TreeReady)
+                    {
+                        RecordAccessibilityBootstrapDiagnostic(
+                            identity,
+                            state,
+                            TimeSpan.Zero,
+                            "ready-after-settle");
+                    }
+                }
+
+                return;
+            }
+
+            if (state.EnhancedRequestCount > 0)
+            {
+                if (DateTime.UtcNow < state.NextRetryAtUtc)
+                {
+                    return;
+                }
+
+                var retryStopwatch = Stopwatch.StartNew();
+                state.TreeReady = ProbeForRichAccessibilityTree(
+                    application,
+                    AccessibilityQuickProbeTime);
+                state.EnhancedResult = SetTrue(application, "AXEnhancedUserInterface");
+                state.EnhancedRequestCount++;
+                state.TreeReady = WaitForRichAccessibilityTree(
+                    application,
+                    EnhancedAccessibilitySettleTime);
+                var retryRequestWasNotTransient =
+                    !IsTransientSetFailure(state.EnhancedResult);
+                state.RequestsExhausted = retryRequestWasNotTransient
+                    || state.EnhancedRequestCount >= MaximumEnhancedAccessibilityRequests;
+                if (!state.RequestsExhausted)
+                {
+                    state.NextRetryAtUtc = DateTime.UtcNow
+                        + TimeSpan.FromSeconds(state.EnhancedRequestCount);
+                }
+                else if (!state.TreeReady)
+                {
+                    state.NextReadinessProbeAtUtc =
+                        DateTime.UtcNow + AccessibilityReprobeInterval;
+                }
+
+                RecordAccessibilityBootstrapDiagnostic(
+                    identity,
+                    state,
+                    retryStopwatch.Elapsed,
+                    state.RequestsExhausted
+                        ? "enhanced-requests-exhausted"
+                        : "transient-retry-pending");
+                return;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            state.TreeReadyBeforeRequest = ProbeForRichAccessibilityTree(
+                application,
+                AccessibilityQuickProbeTime);
+
+            // Reading the application role opts Chromium into its public
+            // native/basic accessibility mode before private compatibility
+            // attributes are considered.
+            _ = ReadString(application, "AXRole");
+
+            // Electron exposes this attribute specifically for third-party
+            // native accessibility clients. Some older Electron releases
+            // apply the request while still returning an AX error, so tree
+            // readiness is authoritative rather than the setter result.
+            state.ManualResult = SetTrueWithCannotCompleteRetry(
+                application,
+                "AXManualAccessibility");
+            state.TreeReady = WaitForRichAccessibilityTree(
+                application,
+                ManualAccessibilitySettleTime);
+            if (state.ManualResult != AxSuccess || !state.TreeReady)
+            {
+                // Current ChatGPT releases use Chromium's BrowserCrApplication,
+                // which exposes AXEnhancedUserInterface instead. Request it
+                // once normally; only a clearly transient delivery failure can
+                // trigger a bounded retry after the full settle window.
+                state.EnhancedResult = SetTrue(application, "AXEnhancedUserInterface");
+                state.EnhancedRequestCount = 1;
+                state.TreeReady = WaitForRichAccessibilityTree(
+                    application,
+                    EnhancedAccessibilitySettleTime);
+            }
+
+            var manualRequestWasDelivered = state.ManualResult == AxSuccess;
+            var enhancedRequestWasNotTransient = state.EnhancedRequestCount > 0
+                && !IsTransientSetFailure(state.EnhancedResult);
+            state.RequestsExhausted = state.EnhancedRequestCount > 0
+                ? enhancedRequestWasNotTransient
+                : manualRequestWasDelivered;
+            if (!state.RequestsExhausted)
+            {
+                state.NextRetryAtUtc = DateTime.UtcNow + AccessibilityRetryCooldown;
+            }
+            else if (!state.TreeReady)
+            {
+                state.NextReadinessProbeAtUtc =
+                    DateTime.UtcNow + AccessibilityReprobeInterval;
+            }
+
+            RecordAccessibilityBootstrapDiagnostic(
+                identity,
+                state,
+                stopwatch.Elapsed,
+                state.RequestsExhausted
+                    ? "requests-complete"
+                    : "transient-retry-pending");
+        }
+    }
+
+    private static Int32 SetTrueWithCannotCompleteRetry(IntPtr element, String attribute)
+    {
+        var result = SetTrue(element, attribute);
+        if (result != AxCannotComplete)
+        {
+            return result;
+        }
+
+        Thread.Sleep(35);
+        return SetTrue(element, attribute);
+    }
+
+    private static Int32 SetTrue(IntPtr element, String attribute)
+    {
+        try
+        {
+            var trueValue = ReadGlobalReference(CoreFoundationHandle.Value, "kCFBooleanTrue");
+            return trueValue == IntPtr.Zero
+                ? AxUnavailable
+                : AXUIElementSetAttributeValue(element, NativeString(attribute), trueValue);
+        }
+        catch
+        {
+            return AxUnavailable;
+        }
+    }
+
+    private static Boolean IsTransientSetFailure(Int32 result)
+        => result is AxCannotComplete or AxUnavailable;
+
+    private static Boolean WaitForRichAccessibilityTree(IntPtr application, TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < timeout)
+        {
+            if (HasRichAccessibilityTree(application, stopwatch, timeout))
+            {
+                return true;
+            }
+
+            var remaining = timeout - stopwatch.Elapsed;
+            if (remaining <= TimeSpan.Zero)
+            {
+                break;
+            }
+
+            Thread.Sleep(remaining < AccessibilityProbeInterval
+                ? remaining
+                : AccessibilityProbeInterval);
+        }
+
+        return false;
+    }
+
+    private static Boolean ProbeForRichAccessibilityTree(
+        IntPtr application,
+        TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        return HasRichAccessibilityTree(application, stopwatch, timeout);
+    }
+
+    private static Boolean HasRichAccessibilityTree(
+        IntPtr application,
+        Stopwatch stopwatch,
+        TimeSpan timeout)
+    {
+        if (stopwatch.Elapsed >= timeout)
+        {
+            return false;
+        }
+
+        _ = TryCopyElement(application, "AXFocusedWindow", out var focusedWindow);
+
+        // Keep the retained element alive while AXWindows is visited so the
+        // focused window can be skipped instead of counted twice.
+        using (focusedWindow)
+        {
+            if (focusedWindow is not null
+                && HasRichAccessibilitySubtree(
+                    focusedWindow.Handle,
+                    stopwatch,
+                    timeout))
+            {
+                return true;
+            }
+
+            var isReady = false;
+            if (stopwatch.Elapsed < timeout)
+            {
+                ForEachElement(
+                    application,
+                    "AXWindows",
+                    window =>
+                    {
+                        if (!isReady
+                            && stopwatch.Elapsed < timeout
+                            && (focusedWindow is null
+                                || !IsSameElement(window, focusedWindow.Handle))
+                            && HasRichAccessibilitySubtree(
+                                window,
+                                stopwatch,
+                                timeout))
+                        {
+                            isReady = true;
+                        }
+                    });
+            }
+
+            return isReady;
+        }
+    }
+
+    private static Boolean HasRichAccessibilitySubtree(
+        IntPtr root,
+        Stopwatch stopwatch,
+        TimeSpan timeout)
+    {
+        var probe = new AccessibilityTreeProbe();
+        ProbeAccessibilityTree(root, 0, probe, stopwatch, timeout);
+        return probe.IsReady;
+    }
+
+    private static void ProbeAccessibilityTree(
+        IntPtr element,
+        Int32 depth,
+        AccessibilityTreeProbe probe,
+        Stopwatch stopwatch,
+        TimeSpan timeout)
+    {
+        if (probe.IsReady
+            || depth > AccessibilityProbeMaximumDepth
+            || probe.NodesVisited >= AccessibilityProbeMaximumNodes
+            || stopwatch.Elapsed >= timeout)
+        {
+            return;
+        }
+
+        probe.NodesVisited++;
+        probe.MaximumDepth = Math.Max(probe.MaximumDepth, depth);
+        var role = ReadString(element, "AXRole");
+        if (role == "AXWebArea")
+        {
+            probe.SawWebArea = true;
+        }
+
+        if (depth >= 2 && IsWebContentRole(role))
+        {
+            probe.ContentRoleCount++;
+        }
+
+        probe.IsReady = probe.SawWebArea
+            || (probe.NodesVisited > AccessibilityProbeReadyNodeCount
+                && probe.MaximumDepth >= 3
+                && probe.ContentRoleCount >= AccessibilityProbeReadyContentRoleCount);
+        if (probe.IsReady)
+        {
+            return;
+        }
+
+        if (stopwatch.Elapsed < timeout)
+        {
+            ForEachElement(
+                element,
+                "AXChildren",
+                child => ProbeAccessibilityTree(
+                    child,
+                    depth + 1,
+                    probe,
+                    stopwatch,
+                    timeout));
+        }
+    }
+
+    private static Boolean IsWebContentRole(String role)
+        => role is "AXHeading"
+            or "AXLink"
+            or "AXList"
+            or "AXRow"
+            or "AXScrollArea"
+            or "AXStaticText"
+            or "AXTextArea"
+            or "AXTextField";
+
+    private static ProcessIdentity ReadProcessIdentity(Int32 processId)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(processId);
+            return new ProcessIdentity(processId, process.StartTime.ToUniversalTime().Ticks);
+        }
+        catch
+        {
+            return new ProcessIdentity(processId, 0);
+        }
+    }
+
+    private static Boolean IsSameRunningProcess(ProcessIdentity identity)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(identity.ProcessId);
+            return process.StartTime.ToUniversalTime().Ticks == identity.StartTimeTicks;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static void RecordAccessibilityBootstrapDiagnostic(
+        ProcessIdentity identity,
+        AccessibilityBootstrapState state,
+        TimeSpan elapsed,
+        String outcome)
+    {
+        var enhancedResult = state.EnhancedRequestCount == 0
+            ? "not-requested"
+            : state.EnhancedResult.ToString();
+        Volatile.Write(
+            ref accessibilityBootstrapDiagnostic,
+            $"AX bootstrap pid={identity.ProcessId}, outcome={outcome}, "
+            + $"ready-before={state.TreeReadyBeforeRequest}, "
+            + $"manual-result={state.ManualResult}, "
+            + $"enhanced-result={enhancedResult}, "
+            + $"enhanced-requests={state.EnhancedRequestCount}, "
+            + $"tree-ready={state.TreeReady}, elapsed-ms={elapsed.TotalMilliseconds:F0}.");
+    }
+
     private static Boolean TryReadPoint(
         IntPtr element,
         String attribute,
@@ -597,6 +1012,42 @@ internal static class MacAccessibilityNative
     {
         var export = NativeLibrary.GetExport(library, symbol);
         return export == IntPtr.Zero ? IntPtr.Zero : Marshal.ReadIntPtr(export);
+    }
+
+    private readonly record struct ProcessIdentity(Int32 ProcessId, Int64 StartTimeTicks);
+
+    private sealed class AccessibilityBootstrapState
+    {
+        public Object Gate { get; } = new();
+
+        public Int32 EnhancedRequestCount { get; set; }
+
+        public Int32 EnhancedResult { get; set; } = AxUnavailable;
+
+        public Int32 ManualResult { get; set; } = AxUnavailable;
+
+        public DateTime NextReadinessProbeAtUtc { get; set; }
+
+        public DateTime NextRetryAtUtc { get; set; }
+
+        public volatile Boolean RequestsExhausted;
+
+        public volatile Boolean TreeReady;
+
+        public Boolean TreeReadyBeforeRequest { get; set; }
+    }
+
+    private sealed class AccessibilityTreeProbe
+    {
+        public Boolean IsReady { get; set; }
+
+        public Boolean SawWebArea { get; set; }
+
+        public Int32 ContentRoleCount { get; set; }
+
+        public Int32 MaximumDepth { get; set; }
+
+        public Int32 NodesVisited { get; set; }
     }
 
     [DllImport(ApplicationServices)]

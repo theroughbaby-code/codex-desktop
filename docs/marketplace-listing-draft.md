@@ -47,5 +47,5 @@ On macOS, **LogiPluginService** needs Accessibility permission for state-aware c
 - Marketplace account/developer identity
 - Developer EULA acceptance
 - Final screenshots and banner URLs/files
-- Verified universal `CodexDesktop-1.1.17.lplug4`
+- Verified universal `CodexDesktop-1.1.18.lplug4`
 - Windows and macOS validation notes from physical MX Creative Keypad testing
