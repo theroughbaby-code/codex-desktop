@@ -1,54 +1,74 @@
 # Codex Desktop
 
-**A Windows application plugin for controlling ChatGPT and Codex Desktop from the Logitech MX Creative Keypad in Logi Options+.**
+**A Logitech MX Creative Keypad plugin for controlling ChatGPT and Codex Desktop on Windows and macOS through Logi Options+.**
 
-- Current version: **1.1.9**
-- Platform: **Windows**
+- Current release candidate: **1.1.12**
+- Platforms: **Windows and macOS**
+- Release artifact: **one universal `.lplug4` package**
 - Device profile: **Logitech MX Creative Keypad**
-- Download: [CodexDesktop-1.1.9.lplug4](./CodexDesktop-1.1.9.lplug4)
-- Project and support: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
+- Project: [GitHub repository](https://github.com/theroughbaby-code/codex-desktop)
+- Support: [GitHub issues](https://github.com/theroughbaby-code/codex-desktop/issues)
 
-## Latest: 1.1.9
+## 1.1.12 release candidate
 
-- Added a read-only macOS environment audit and runbook for the upcoming Mac port; the packaged plugin remains Windows-only in this release.
-- Extended approval and Stop detection to consume stable accessible names and help text when Chromium does not expose DOM identifiers or CSS classes.
-- Refreshed the multilingual UI Automation fixtures and verified the package with the official Logitech tool.
+- Packages the Windows and macOS plugin assemblies together in one `CodexDesktop-1.1.12.lplug4` archive.
+- Adds native macOS shortcut dispatch, application activation, approval controls, model selection, Stop Thinking, and Codex usage status.
+- Uses each operating system's local accessibility API for state-aware actions and reacquires the actionable control after bringing Codex to the foreground.
+- Reads Codex usage through the user's locally installed Codex CLI session on both platforms.
 
 ## Installation
 
-1. Find the plugin in Logi marketplace and press install.
-2. Open Codex Desktop. The included nine-action Keypad profile is tied to the ChatGPT/Codex desktop application.
+The same `.lplug4` archive is used on Windows and macOS. During release validation, install the generated archive through Logi Options+. After Marketplace approval, install Codex Desktop directly from Logitech Marketplace.
+
+Open ChatGPT/Codex Desktop after installation. The included nine-action Keypad profile is bound to the desktop application.
+
+Usage status requires the Codex CLI and a one-time `codex login` on each computer. On macOS, grant **Logi Plugin Service** access under **System Settings > Privacy & Security > Accessibility** for actions that inspect or invoke visible Codex controls.
 
 ## Actions
 
 | Action | Description |
 | --- | --- |
-| Open Codex | Finds `codex.exe` and runs `codex app`. |
-| Custom Prompt | Sends a custom prompt to active codex chat. |
-| Usage status | Shows remaining Codex usage and refreshes it when pressed. Requires a one-time `codex login` for the CLI app-server. |
+| Open Codex | Opens the Codex desktop application. |
+| Custom Prompt | Sends a configured prompt to the active Codex chat. |
+| Usage status | Shows remaining Codex usage and refreshes it when pressed. |
 | Approve | Approves a visible request, or opens the next chat needing attention. |
 | Always approve | Uses the strongest persistent approval offered by the visible request, or opens the next chat needing attention. |
 | Deny | Denies a visible request, or opens the next chat needing attention. |
-| Stop thinking | Stops the active visible Codex response and turns red while it can be interrupted. |
-| Switch to GPT | Sends `Alt+1` to switch to GPT. |
-| Switch to Codex | Sends `Alt+3` to switch to Codex. |
-| Shortcut actions | Sends ChatGPT/Codex Desktop keyboard shortcuts through the Logi C# SDK, grouped by category. |
+| Stop Thinking | Stops the active visible Codex response and turns red while it can be interrupted. |
+| Open model picker | Opens the visible model selector in the active composer. |
+| Shortcut actions | Sends the matching ChatGPT/Codex Desktop shortcut, grouped by category. |
 
-The action library includes guarded approval and interruption controls, chat creation and management, navigation, panels, project controls, app settings, Custom Prompt, model selection, Codex usage status, and direct GPT/Codex switching.
+The action library also includes chat creation and management, navigation, panels, project controls, app settings, and direct GPT/Codex switching.
 
-Codex Desktop does not currently expose another local client API for observing or resolving approval requests owned by the running desktop session. The approval buttons therefore use visible Windows accessibility controls. Detection is designed to be independent of the selected Codex language, with translated labels used only as fallbacks. Their live color can detect an exposed approval surface or status, but it cannot guarantee detection inside every hidden or unloaded chat.
+Approve, Always approve, Deny, and Stop Thinking operate only after the plugin finds the corresponding live control. Windows uses UI Automation and macOS uses Accessibility. Open model picker uses the desktop shortcut on macOS and an accessibility-first path with shortcut fallback on Windows. A lit state reports an accessible approval or Stop control; hidden and unloaded chats may not expose their controls until Codex opens them.
+
+## Privacy and local data use
+
+The plugin does not include analytics or an external telemetry service. It does not upload or persist Codex account credentials, access tokens, approval text, or chat contents.
+
+Usage status starts the locally installed `codex app-server` process and requests only `account/rateLimits/read`. Authentication remains managed by the Codex CLI. Approval, model, and Stop Thinking actions inspect and invoke the running desktop application's accessibility controls locally. A Custom Prompt value is stored as an Options+ action setting and sent only to the active ChatGPT/Codex Desktop composer.
 
 ## Package
 
 - Display name: Codex Desktop
 - Logi plugin id: CodexDesktop
-- Version: 1.1.9
-- Plugin type: Windows application plugin
-- Runtime: C# plugin through Logi Plugin Service
+- Version: 1.1.12
+- Plugin type: Cross-platform application plugin
+- Runtimes: C# assemblies in `win/` and `mac/`
 - Target device: MX Creative Console Keypad through Logi Options+
 - Default profile: One MX Creative Keypad page with nine Codex actions
 - License: MIT
 
-## Notes
+The release package has this platform layout:
+
+```text
+metadata/LoupedeckPackage.yaml
+metadata/Icon256x256.png
+win/CodexDesktopPlugin.dll
+mac/CodexDesktopPlugin.dll
+LICENSE
+```
+
+`npm run pack:windows` builds `artifacts/win/CodexDesktopPlugin.dll` on Windows, and `npm run build:mac-smoke` builds `artifacts/mac/CodexDesktopPlugin.dll` on macOS. `npm run pack` combines those native artifacts into the universal archive. Run `npm run prepare:profile` after changing the release version or icon.
 
 Detailed release history lives in [CHANGELOG.md](./CHANGELOG.md). The project is available under the [MIT License](./LICENSE).

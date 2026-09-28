@@ -3,9 +3,14 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>CodexDesktopPlugin</AssemblyName>
     <RootNamespace>Loupedeck.CodexDesktopPlugin</RootNamespace>
+    <AssemblyTitle>Codex Desktop</AssemblyTitle>
+    <Product>Codex Desktop</Product>
+    <Description>Controls ChatGPT and Codex Desktop from Logitech MX Creative Keypad.</Description>
+    <Company>TheRoughBaby</Company>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GenerateDependencyFile>false</GenerateDependencyFile>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <DebugType>none</DebugType>
   </PropertyGroup>
 
@@ -20,4 +25,20 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../src-csharp/ApprovalLabels.cs" Link="Shared/ApprovalLabels.cs" />
+    <Compile Include="../src-csharp/CodexRateLimitClient.cs" Link="Shared/CodexRateLimitClient.cs" />
+    <Compile Include="../src-csharp/PluginResources.cs" Link="Shared/PluginResources.cs" />
+    <Compile Include="../src-csharp/StopLabels.cs" Link="Shared/StopLabels.cs" />
+    <Compile Include="../src-csharp/UsageStatusCommand.cs" Link="Shared/UsageStatusCommand.cs" />
+    <StateImage Include="../src-csharp/resources/generated/*.png" />
+    <EmbeddedResource Include="@(StateImage)">
+      <LogicalName>Loupedeck.CodexDesktopPlugin.Resources.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="RequireStateImages" BeforeTargets="CoreCompile">
+    <Error Condition="'@(StateImage)' == ''" Text="Runtime state images are missing. Run scripts/generate-runtime-state-images.mjs before building the Mac plugin." />
+  </Target>
 </Project>

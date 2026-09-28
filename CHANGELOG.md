@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.12 - 2026-09-28 (release candidate)
+
+- Added one universal `.lplug4` layout containing separate `win/CodexDesktopPlugin.dll` and `mac/CodexDesktopPlugin.dll` assemblies under a shared manifest and default profile.
+- Added the native macOS plugin path with Mac shortcut mappings, ChatGPT bundle activation, approval controls, model selection, and Stop Thinking support.
+- Added Codex usage status on macOS through the same local `codex app-server` rate-limit request used on Windows, with Mac-specific Codex CLI discovery.
+- Reworked macOS state-aware actions to reacquire their exact Accessibility target after activating Codex and to remain inactive when no actionable control is available.
+- Documented the macOS Accessibility permission required by Logi Plugin Service and the plugin's local handling of usage, approval, model, and interruption state.
+- Made `npm run pack` create the universal package while retaining `npm run pack:windows` for Windows-only development builds.
+- Moved the generated 61-action developer test profile under `artifacts/test-profiles/` so it cannot replace the curated production profile.
+- Updated the package support link to the repository's GitHub Issues page.
+
 ## 1.1.9 - 2026-09-27
 
 - Added a read-only macOS environment audit that records the ChatGPT bundle identity, architectures, URL schemes, AppleScript support, Codex CLI, Logitech runtime paths, build tools, profiles, and relevant processes without collecting credentials.

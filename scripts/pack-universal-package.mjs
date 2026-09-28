@@ -1,7 +1,14 @@
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
+import {
+  defaultProfilePath,
+  verifyDefaultProfile,
+} from './lib/default-profile-validation.mjs';
+import { verifyPluginAssemblies } from './lib/dotnet-assembly-validation.mjs';
+import { verifyPluginIcon } from './lib/plugin-icon-validation.mjs';
 
 const root = process.cwd();
 const options = parseArguments(process.argv.slice(2));
@@ -28,14 +35,59 @@ const packagePath = resolveInputPath(
 await requireFile(windowsDll, 'Windows plugin artifact');
 await requireFile(macDll, 'macOS plugin artifact');
 
+const profileVerification = verifyDefaultProfile(defaultProfilePath(root), version);
+await verifyPluginAssemblies({
+  root,
+  assemblies: [
+    { label: 'Windows', path: windowsDll },
+    { label: 'macOS', path: macDll },
+  ],
+  expectedVersion: version,
+  requiredTypeNames: profileVerification.actionTypes,
+});
+
+const sharedDirectories = ['metadata', 'actionicons', 'actionsymbols', 'assets', 'profiles'];
+for (const directory of sharedDirectories) {
+  await requireDirectory(path.join(root, 'package', directory), `Shared package directory '${directory}'`);
+}
+for (const file of [
+  ['Package license', path.join(root, 'LICENSE')],
+  ['Package metadata', path.join(root, 'package', 'metadata', 'LoupedeckPackage.yaml')],
+  ['Package icon', path.join(root, 'package', 'metadata', 'Icon256x256.png')],
+  ['Default profile', defaultProfilePath(root)],
+]) {
+  await requireFile(file[1], file[0]);
+}
+const iconVerification = await verifyPluginIcon(
+  path.join(root, 'package', 'metadata', 'Icon256x256.png'),
+);
+const packageIconSha256 = createHash('sha256')
+  .update(await readFile(path.join(root, 'package', 'metadata', 'Icon256x256.png')))
+  .digest('hex');
+if (profileVerification.applicationIconSha256 !== packageIconSha256) {
+  throw new Error('Default profile ApplicationIcon.png must exactly match the package icon.');
+}
+console.log(
+  `Plugin icon verified with ${iconVerification.artworkWidth}x${iconVerification.artworkHeight} centered artwork.`,
+);
+for (const typeName of profileVerification.actionTypes) {
+  const className = typeName.split('.').at(-1);
+  await requireFile(
+    path.join(root, 'package', 'actionicons', `${typeName}.svg`),
+    `Action icon for ${className}`,
+  );
+  await requireFile(
+    path.join(root, 'package', 'actionsymbols', `${typeName}.svg`),
+    `Action symbol for ${className}`,
+  );
+}
+
 await rm(distPath, { recursive: true, force: true });
 await mkdir(distPath, { recursive: true });
 
-for (const directory of ['metadata', 'actionicons', 'actionsymbols', 'assets', 'profiles']) {
+for (const directory of sharedDirectories) {
   const source = path.join(root, 'package', directory);
-  if (await pathExists(source)) {
-    await cp(source, path.join(distPath, directory), { recursive: true });
-  }
+  await cp(source, path.join(distPath, directory), { recursive: true });
 }
 
 await cp(path.join(root, 'LICENSE'), path.join(distPath, 'LICENSE'));
@@ -72,7 +124,11 @@ const tool = await resolveLogiPluginTool();
 await rm(packagePath, { force: true });
 run(tool.command, [...tool.prefixArguments, 'pack', distPath, packagePath]);
 run(tool.command, [...tool.prefixArguments, 'verify', packagePath]);
-run(process.execPath, [path.join(root, 'scripts', 'verify-standalone-package.mjs')]);
+run(process.execPath, [
+  path.join(root, 'scripts', 'verify-release-output.mjs'),
+  '--directory', distPath,
+  '--archive', packagePath,
+]);
 
 console.log(`Universal Windows + macOS package ready: ${packagePath}`);
 
@@ -189,6 +245,16 @@ async function requireFile(filePath, label) {
     // Report the release-oriented error below.
   }
   throw new Error(`${label} was not found at ${filePath}. Build or copy both platform artifacts before packing.`);
+}
+
+async function requireDirectory(directoryPath, label) {
+  try {
+    const info = await stat(directoryPath);
+    if (info.isDirectory() && (await readdir(directoryPath)).length > 0) return;
+  } catch {
+    // Report the release-oriented error below.
+  }
+  throw new Error(`${label} was not found or is empty at ${directoryPath}.`);
 }
 
 async function pathExists(targetPath) {

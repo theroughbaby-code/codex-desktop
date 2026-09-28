@@ -8,9 +8,12 @@ const profileName = 'A1B2C3D4E5F6478890ABCDEF12345678';
 const workspaceName = 'B1C2D3E4F5A6478890ABCDEF12345678';
 const profileActionId = '$@Generic___@ProfileAction___C1D2E3F4A5B6478890ABCDEF12345678';
 const profileBuildRoot = path.join(root, '.profile-build');
-const profileBuildDirectory = path.join(profileBuildRoot, 'DefaultProfile70');
-const profileOutputDirectory = path.join(root, 'package', 'profiles');
-const profileOutputPath = path.join(profileOutputDirectory, 'DefaultProfile70.lp5');
+const profileBuildDirectory = path.join(profileBuildRoot, 'CodexDesktopAllActionsTest');
+const profileOutputDirectory = path.join(root, 'artifacts', 'test-profiles');
+const profileOutputPath = path.join(
+  profileOutputDirectory,
+  `CodexDesktop-All-Actions-Test-${packageJson.version}.lp5`,
+);
 const namespaceName = 'Loupedeck.CodexDesktopPlugin';
 const crcTable = createCrcTable();
 
@@ -28,8 +31,8 @@ const assignedActions = [
   ...catalog.map((action) => profileCommand(action.className)),
 ];
 
-if (assignedActions.length !== 62 || new Set(assignedActions).size !== assignedActions.length) {
-  throw new Error(`Expected 62 unique test actions, found ${assignedActions.length}.`);
+if (assignedActions.length !== 61 || new Set(assignedActions).size !== assignedActions.length) {
+  throw new Error(`Expected 61 unique test actions, found ${assignedActions.length}.`);
 }
 
 const pageNames = [
@@ -174,7 +177,9 @@ await rm(profileOutputPath, { force: true });
 await writeZipFromDirectory(profileBuildDirectory, profileOutputPath);
 await rm(profileBuildRoot, { recursive: true, force: true });
 
-console.log(`Generated ${profileOutputPath} with ${pages.length} pages and ${assignedActions.length} actions.`);
+console.log(
+  `Generated developer test profile ${profileOutputPath} with ${pages.length} pages and ${assignedActions.length} actions.`,
+);
 
 function profileCommand(className) {
   return `$CodexDesktop___${namespaceName}.${className}`;

@@ -18,10 +18,10 @@ $output = New-Object System.Drawing.Bitmap(
 )
 $graphics = [System.Drawing.Graphics]::FromImage($output)
 $badgePath = New-Object System.Drawing.Drawing2D.GraphicsPath
-$badgePath.AddArc(4, 4, 78, 78, 180, 90)
-$badgePath.AddArc(174, 4, 78, 78, 270, 90)
-$badgePath.AddArc(174, 174, 78, 78, 0, 90)
-$badgePath.AddArc(4, 174, 78, 78, 90, 90)
+$badgePath.AddArc(34, 34, 58, 58, 180, 90)
+$badgePath.AddArc(164, 34, 58, 58, 270, 90)
+$badgePath.AddArc(164, 164, 58, 58, 0, 90)
+$badgePath.AddArc(34, 164, 58, 58, 90, 90)
 $badgePath.CloseFigure()
 $badgeBrush = New-Object System.Drawing.SolidBrush(
     [System.Drawing.ColorTranslator]::FromHtml('#081c05')
@@ -54,11 +54,11 @@ try {
 
     $graphics.FillPath($badgeBrush, $badgePath)
     $graphics.SetClip($badgePath)
-    $graphics.FillEllipse($glareBrush, -42, -64, 238, 180)
+    $graphics.FillEllipse($glareBrush, 6, 4, 190, 144)
     $graphics.ResetClip()
     $graphics.DrawPath($edgePen, $badgePath)
 
-    $shadowDestination = New-Object System.Drawing.Rectangle(31, 34, 198, 198)
+    $shadowDestination = New-Object System.Drawing.Rectangle(40, 43, 176, 176)
     $graphics.DrawImage(
         $source,
         $shadowDestination,
@@ -69,7 +69,7 @@ try {
         [System.Drawing.GraphicsUnit]::Pixel,
         $shadowAttributes
     )
-    $graphics.DrawImage($source, (New-Object System.Drawing.Rectangle(29, 29, 198, 198)))
+    $graphics.DrawImage($source, (New-Object System.Drawing.Rectangle(38, 38, 176, 176)))
     $output.Save($temporaryPath, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 finally {

@@ -9,6 +9,7 @@ const version = String(packageJson.version);
 const pluginName = 'CodexDesktop';
 const distPath = path.join(root, 'dist-mac-smoke');
 const assemblyPath = path.join(root, 'src-csharp-mac', 'bin', 'Release', 'net8.0', 'CodexDesktopPlugin.dll');
+const releaseArtifactPath = path.join(root, 'artifacts', 'mac', 'CodexDesktopPlugin.dll');
 const packagePath = path.join(root, `${pluginName}-${version}-mac-smoke.lplug4`);
 
 if (process.platform !== 'darwin') {
@@ -24,6 +25,7 @@ const childEnv = childProcessEnvironment(dotnetPath);
 console.log(`Using PluginApi.dll: ${pluginApiPath}`);
 
 run('node', ['scripts/generate-csharp-shortcuts.mjs']);
+run('node', ['scripts/generate-runtime-state-images.mjs']);
 run(dotnetPath, [
   'build',
   path.join(root, 'src-csharp-mac', 'CodexDesktopMacPlugin.csproj'),
@@ -34,6 +36,9 @@ run(dotnetPath, [
   `-p:FileVersion=${version}.0`,
   `-p:InformationalVersion=${version}`,
 ], { env: childEnv });
+
+await mkdir(path.dirname(releaseArtifactPath), { recursive: true });
+await cp(assemblyPath, releaseArtifactPath);
 
 await rm(distPath, { recursive: true, force: true });
 await mkdir(distPath, { recursive: true });
@@ -71,6 +76,7 @@ if (forbidden.length > 0) {
   throw new Error(`PluginApi.dll must not be included in the smoke package:\n${forbidden.join('\n')}`);
 }
 
+console.log(`Mac release artifact ready: ${releaseArtifactPath}`);
 console.log(`Mac smoke package ready: ${packagePath}`);
 
 function run(command, args, options = {}) {

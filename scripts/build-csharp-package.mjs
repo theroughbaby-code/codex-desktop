@@ -8,6 +8,7 @@ const pluginName = 'CodexDesktop';
 const version = packageJson.version;
 const distPath = path.join(root, 'dist');
 const buildOutputPath = path.join(root, 'src-csharp', 'bin', 'Release', 'net10.0-windows', 'CodexDesktopPlugin.dll');
+const releaseArtifactPath = path.join(root, 'artifacts', 'win', 'CodexDesktopPlugin.dll');
 const packagePath = path.join(root, `${pluginName}-${version}.lplug4`);
 
 await rm(distPath, { recursive: true, force: true });
@@ -32,6 +33,8 @@ await writeFile(metadataPath, metadata);
 const windowsOutputPath = path.join(distPath, 'win');
 await mkdir(windowsOutputPath, { recursive: true });
 await cp(buildOutputPath, path.join(windowsOutputPath, 'CodexDesktopPlugin.dll'));
+await mkdir(path.dirname(releaseArtifactPath), { recursive: true });
+await cp(buildOutputPath, releaseArtifactPath);
 await rm(packagePath, { force: true });
 
 const result = spawnSync('LogiPluginTool', ['pack', distPath, packagePath], {
@@ -58,6 +61,7 @@ if (result.status !== 0) {
 }
 
 console.log(`Prepared versioned package with LogiPluginTool: ${packagePath}`);
+console.log(`Windows release artifact ready: ${releaseArtifactPath}`);
 
 async function pathExists(targetPath) {
   try {
