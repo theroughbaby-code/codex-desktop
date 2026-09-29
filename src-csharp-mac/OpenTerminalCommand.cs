@@ -1,14 +1,13 @@
 namespace Loupedeck.CodexDesktopPlugin;
 
-public sealed class OpenTerminalCommand : ShortcutCommandBase
+public sealed class OpenTerminalCommand : MacDesktopCommandBase
 {
     public OpenTerminalCommand()
         : base(
             "Open terminal",
-            "Opens or closes the integrated terminal.",
+            "Opens the integrated terminal.",
             "Panels",
-            '`',
-            ModifierKey.Control)
+            MacDesktopCommand.OpenTerminal)
     {
     }
 }

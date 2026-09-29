@@ -225,10 +225,10 @@ public sealed class OpenBrowserTabCommand : ShortcutCommandBase
     }
 }
 
-public sealed class OpenReviewTabCommand : ShortcutCommandBase
+public sealed class OpenReviewTabCommand : MacDesktopCommandBase
 {
     public OpenReviewTabCommand()
-        : base("Open review tab", "Opens a review tab.", "Panels", VirtualKeyCode.KeyG, ModifierKey.Control | ModifierKey.Shift)
+        : base("Open review tab", "Opens a review tab.", "Panels", MacDesktopCommand.OpenReviewTab)
     {
     }
 }

@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace Loupedeck.CodexDesktopPlugin;
 
-internal static class CodexMacAccessibility
+internal static partial class CodexMacAccessibility
 {
     private const Int32 MaximumDepth = 42;
     private const Int32 MaximumNodesPerWindow = 7000;
@@ -197,43 +197,26 @@ internal static class CodexMacAccessibility
         MacDesktopMode mode,
         TimeSpan timeout)
     {
-        if (mode == MacDesktopMode.Codex)
-        {
-            return MacActionAttempt.NoTarget;
-        }
-
         if (!MacAccessibilityNative.IsTrusted(false))
         {
             return MacActionAttempt.PermissionRequired;
         }
 
-        var stopwatch = Stopwatch.StartNew();
-        var foundDialog = false;
-        do
+        var command = mode switch
         {
-            using var scan = ScanModeCommand(mode);
-            foundDialog |= scan.HasExactDialog;
-            if (scan.Target is not null)
-            {
-                var attempt = ToActionAttempt(scan.Target.TryPressOnly());
-                if (!IsSuccessfulAction(attempt))
-                {
-                    return MacActionAttempt.Unavailable;
-                }
-
-                // Home exposes a verifiable pressed state. Existing ChatGPT
-                // conversations do not, so an exact command invocation is the
-                // terminal success signal when that control is absent.
-                _ = WaitForActiveMode(mode, TimeSpan.FromMilliseconds(650));
-                return attempt;
-            }
-
-            Thread.Sleep(45);
+            MacDesktopMode.ChatGPT => MacDesktopCommand.SwitchToChat,
+            MacDesktopMode.Work => MacDesktopCommand.SwitchToWork,
+            MacDesktopMode.Codex => MacDesktopCommand.SwitchToCodex,
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null),
+        };
+        var attempt = TryInvokeCommandPaletteCommand(command, timeout);
+        if (!IsSuccessfulAction(attempt))
+        {
+            return attempt;
         }
-        while (stopwatch.Elapsed < timeout);
 
-        return foundDialog
-            ? MacActionAttempt.NoTarget
+        return WaitForActiveMode(mode, ProductTransitionTimeout)
+            ? attempt
             : MacActionAttempt.Unavailable;
     }
 
@@ -410,7 +393,7 @@ internal static class CodexMacAccessibility
             return MacActionAttempt.NoTarget;
         }
 
-        var openAction = initial.Trigger.TryOpen();
+        var openAction = initial.Trigger.TryClick();
         if (openAction == MacTargetAction.Unavailable)
         {
             return MacActionAttempt.Unavailable;
@@ -420,43 +403,11 @@ internal static class CodexMacAccessibility
             requestedMode,
             productMode,
             TimeSpan.FromMilliseconds(900),
-            forceNativeClick: false);
+            forceNativeClick: true);
         if (IsSuccessfulAction(itemAttempt)
             && WaitForProductMode(productMode, ProductTransitionTimeout))
         {
             return itemAttempt;
-        }
-
-        if (itemAttempt == MacActionAttempt.Invoked)
-        {
-            var clickAttempt = WaitForProductItemAction(
-                requestedMode,
-                productMode,
-                TimeSpan.FromMilliseconds(450),
-                forceNativeClick: true);
-            if (clickAttempt == MacActionAttempt.Clicked
-                && WaitForProductMode(productMode, ProductTransitionTimeout))
-            {
-                return clickAttempt;
-            }
-        }
-
-        if (openAction == MacTargetAction.Invoked)
-        {
-            using var retry = ScanModeControls(requestedMode, includeProductItems: false);
-            if (retry.Trigger?.TryClick() == MacTargetAction.Clicked)
-            {
-                var clickAttempt = WaitForProductItemAction(
-                    requestedMode,
-                    productMode,
-                    TimeSpan.FromMilliseconds(900),
-                    forceNativeClick: true);
-                if (clickAttempt == MacActionAttempt.Clicked
-                    && WaitForProductMode(productMode, ProductTransitionTimeout))
-                {
-                    return clickAttempt;
-                }
-            }
         }
 
         return itemAttempt == MacActionAttempt.NoTarget
@@ -485,23 +436,13 @@ internal static class CodexMacAccessibility
 
             if (scan.ComposerButton is not null)
             {
-                var action = scan.ComposerButton.TryPress();
+                var action = scan.ComposerButton.TryClick();
                 var attempt = ToActionAttempt(action);
                 if (IsSuccessfulAction(attempt))
                 {
                     if (WaitForActiveMode(mode, TimeSpan.FromMilliseconds(900)))
                     {
                         return attempt;
-                    }
-
-                    if (attempt == MacActionAttempt.Invoked)
-                    {
-                        using var retry = ScanModeControls(mode, includeProductItems: false);
-                        if (retry.ComposerButton?.TryClick() == MacTargetAction.Clicked
-                            && WaitForActiveMode(mode, TimeSpan.FromMilliseconds(900)))
-                        {
-                            return MacActionAttempt.Clicked;
-                        }
                     }
 
                     return MacActionAttempt.Unavailable;
@@ -592,222 +533,6 @@ internal static class CodexMacAccessibility
         return false;
     }
 
-    private static ModeCommandScan ScanModeCommand(MacDesktopMode mode)
-    {
-        var commandTitle = mode == MacDesktopMode.ChatGPT
-            ? "Switch to Chat"
-            : "Switch to Work";
-        var candidates = new List<ModeCommandCandidate>();
-        var searchState = new ModeCommandSearchState();
-        try
-        {
-            foreach (var processId in GetCodexProcessIds())
-            {
-                using var application = MacAccessibilityNative.CreateApplication(processId);
-                if (application is null
-                    || MacAccessibilityNative.ReadBoolean(application.Handle, "AXFrontmost") != true
-                    || !MacAccessibilityNative.TryCopyElement(
-                        application.Handle,
-                        "AXFocusedWindow",
-                        out var focusedWindow)
-                    || focusedWindow is null)
-                {
-                    continue;
-                }
-
-                using (focusedWindow)
-                {
-                    var budget = new ScanBudget();
-                    TraverseModeCommandDialogs(
-                        focusedWindow.Handle,
-                        focusedWindow.Handle,
-                        commandTitle,
-                        candidates,
-                        searchState,
-                        0,
-                        budget);
-
-                    // Radix portals can be exposed beside AXWindows rather
-                    // than below AXFocusedWindow. Only use this broader root
-                    // after the focused tree failed to expose the exact dialog.
-                    if (!searchState.FoundDialog)
-                    {
-                        var applicationBudget = new ScanBudget();
-                        TraverseModeCommandDialogs(
-                            application.Handle,
-                            focusedWindow.Handle,
-                            commandTitle,
-                            candidates,
-                            searchState,
-                            0,
-                            applicationBudget);
-                    }
-                }
-            }
-
-            var exactTargets = candidates
-                .OrderByDescending(candidate => candidate.Score)
-                .ToArray();
-            var target = exactTargets.Length switch
-            {
-                0 => null,
-                1 => exactTargets[0],
-                _ when exactTargets[0].Score > exactTargets[1].Score => exactTargets[0],
-                _ => null,
-            };
-            return new ModeCommandScan(searchState.FoundDialog, target?.Target.Clone());
-        }
-        finally
-        {
-            foreach (var candidate in candidates)
-            {
-                candidate.Target.Dispose();
-            }
-        }
-    }
-
-    private static void TraverseModeCommandDialogs(
-        IntPtr element,
-        IntPtr window,
-        String commandTitle,
-        ICollection<ModeCommandCandidate> candidates,
-        ModeCommandSearchState searchState,
-        Int32 depth,
-        ScanBudget budget)
-    {
-        if (depth > MaximumDepth)
-        {
-            return;
-        }
-
-        if (budget.NodesVisited >= MaximumNodesPerWindow)
-        {
-            budget.WasTruncated = true;
-            return;
-        }
-
-        budget.NodesVisited++;
-        var role = MacAccessibilityNative.ReadString(element, "AXRole");
-        var subrole = MacAccessibilityNative.ReadString(element, "AXSubrole");
-        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
-        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
-        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
-        var value = MacAccessibilityNative.ReadString(element, "AXValue");
-        var labels = new[] { title, description, help, value };
-        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
-            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
-        var exactDialogRole = role == "AXDialog"
-            || (role == "AXGroup"
-                && subrole is "AXApplicationDialog" or "AXDialog");
-        var exactDialogLabel = HasExactLabel(labels, "Command menu")
-            || HasExactLabel(labels, "Search commands and past chats.");
-        if (visible && exactDialogRole && exactDialogLabel)
-        {
-            searchState.FoundDialog = true;
-            var itemBudget = new ScanBudget();
-            TraverseModeCommandItems(
-                element,
-                window,
-                commandTitle,
-                candidates,
-                false,
-                0,
-                itemBudget);
-            return;
-        }
-
-        // Portalled dialogs and their list content are normally appended at
-        // the end of Chromium's AX tree. Visit the newest nodes first so long
-        // conversations cannot consume the bounded scan before the overlay.
-        MacAccessibilityNative.ForEachElementReverse(
-            element,
-            "AXChildren",
-            child => TraverseModeCommandDialogs(
-                child,
-                window,
-                commandTitle,
-                candidates,
-                searchState,
-                depth + 1,
-                budget));
-    }
-
-    private static void TraverseModeCommandItems(
-        IntPtr element,
-        IntPtr window,
-        String commandTitle,
-        ICollection<ModeCommandCandidate> candidates,
-        Boolean inCommandList,
-        Int32 depth,
-        ScanBudget budget)
-    {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
-        {
-            return;
-        }
-
-        budget.NodesVisited++;
-        var role = MacAccessibilityNative.ReadString(element, "AXRole");
-        var title = MacAccessibilityNative.ReadString(element, "AXTitle");
-        var description = MacAccessibilityNative.ReadString(element, "AXDescription");
-        var help = MacAccessibilityNative.ReadString(element, "AXHelp");
-        var value = MacAccessibilityNative.ReadString(element, "AXValue");
-        var labels = new[] { title, description, help, value };
-        var currentCommandList = inCommandList || role is "AXList" or "AXListBox";
-        var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
-        var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
-            && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
-        var expectedRole = role is "AXButton"
-            or "AXListBoxOption"
-            or "AXMenuItem"
-            or "AXRow"
-            or "AXStaticText";
-        var exactCommandLabel = HasExactLabel(labels, commandTitle)
-            || HasExactDescendantLabel(
-                element,
-                new[] { commandTitle },
-                maximumDepth: 3,
-                maximumNodes: 24);
-        if (enabled
-            && visible
-            && currentCommandList
-            && expectedRole
-            && exactCommandLabel)
-        {
-            var actions = MacAccessibilityNative.ReadActionNames(element);
-            if (actions.Contains("AXPress"))
-            {
-                var score = role switch
-                {
-                    "AXMenuItem" or "AXListBoxOption" => 380,
-                    "AXButton" => 360,
-                    "AXRow" => 340,
-                    _ => 300,
-                };
-                candidates.Add(new ModeCommandCandidate(
-                    new MacAxTarget(
-                        element,
-                        window,
-                        role,
-                        true,
-                        FirstText(title, description, help, value)),
-                    score));
-            }
-        }
-
-        MacAccessibilityNative.ForEachElement(
-            element,
-            "AXChildren",
-            child => TraverseModeCommandItems(
-                child,
-                window,
-                commandTitle,
-                candidates,
-                currentCommandList,
-                depth + 1,
-                budget));
-    }
-
     private static Boolean IsRequestedModeActive(ModeControlScan scan, MacDesktopMode mode)
         => mode == MacDesktopMode.Codex
             ? scan.ProductMode == MacProductMode.Codex
@@ -843,6 +568,7 @@ internal static class CodexMacAccessibility
                 using (focusedWindow)
                 {
                     var budget = new ScanBudget();
+                    var modeStopwatch = Stopwatch.StartNew();
                     TraverseModeControls(
                         focusedWindow.Handle,
                         focusedWindow.Handle,
@@ -851,7 +577,8 @@ internal static class CodexMacAccessibility
                         candidates,
                         false,
                         0,
-                        budget);
+                        budget,
+                        modeStopwatch);
 
                     // The Home composer follows the conversation viewport in
                     // the AX tree. On long chats, find its exact labelled group
@@ -874,13 +601,15 @@ internal static class CodexMacAccessibility
                         && budget.WasTruncated)
                     {
                         var composerBudget = new ScanBudget();
+                        var composerStopwatch = Stopwatch.StartNew();
                         TraverseComposerControlsReverse(
                             focusedWindow.Handle,
                             focusedWindow.Handle,
                             candidates,
                             false,
                             0,
-                            composerBudget);
+                            composerBudget,
+                            composerStopwatch);
                     }
 
                     // The open product selector is a Radix portal. macOS may
@@ -892,6 +621,7 @@ internal static class CodexMacAccessibility
                             candidate.Kind == ModeCandidateKind.ProductItem))
                     {
                         var menuBudget = new ScanBudget();
+                        var menuStopwatch = Stopwatch.StartNew();
                         TraverseProductMenusReverse(
                             application.Handle,
                             focusedWindow.Handle,
@@ -899,7 +629,8 @@ internal static class CodexMacAccessibility
                             candidates,
                             inPopupMenu: false,
                             0,
-                            menuBudget);
+                            menuBudget,
+                            menuStopwatch);
                     }
                 }
             }
@@ -949,10 +680,13 @@ internal static class CodexMacAccessibility
         ICollection<ModeCandidate> candidates,
         Boolean inComposerMode,
         Int32 depth,
-        ScanBudget budget)
+        ScanBudget budget,
+        Stopwatch stopwatch)
     {
-        if (depth > MaximumDepth)
+        if (depth > MaximumDepth
+            || stopwatch.Elapsed >= CommandTreeScanTimeout)
         {
+            budget.WasTruncated = true;
             return;
         }
 
@@ -963,6 +697,7 @@ internal static class CodexMacAccessibility
         }
 
         budget.NodesVisited++;
+        MacAccessibilityNative.SetMessagingTimeout(element, 0.12F);
         var role = MacAccessibilityNative.ReadString(element, "AXRole");
         var title = MacAccessibilityNative.ReadString(element, "AXTitle");
         var description = MacAccessibilityNative.ReadString(element, "AXDescription");
@@ -970,7 +705,8 @@ internal static class CodexMacAccessibility
         var value = MacAccessibilityNative.ReadString(element, "AXValue");
         var labels = new[] { title, description, help, value };
         var currentComposerMode = inComposerMode
-            || (role == "AXGroup" && HasExactLabel(labels, "Composer mode"));
+            || (role == "AXGroup"
+                && MacDesktopCommandLocalization.IsComposerModeGroup(labels));
         var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
         var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
             && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
@@ -1007,7 +743,8 @@ internal static class CodexMacAccessibility
                     window,
                     requestedMode,
                     role,
-                    labels);
+                    labels,
+                    stopwatch);
                 if (productItemScore > 0)
                 {
                     candidates.Add(new ModeCandidate(
@@ -1034,19 +771,24 @@ internal static class CodexMacAccessibility
                 var selected = MacAccessibilityNative.ReadInteger(element, "AXValue") == 1
                     || MacAccessibilityNative.ReadBoolean(element, "AXValue") == true
                     || MacAccessibilityNative.ReadBoolean(element, "AXSelected") == true;
-                candidates.Add(new ModeCandidate(
-                    new MacAxTarget(
-                        element,
-                        window,
-                        role,
-                        true,
-                        FirstText(title, description, help, value)),
-                    ModeCandidateKind.ComposerButton,
-                    300,
-                    null,
-                    composerMode,
-                    selected,
-                    enabled));
+                if (MacAccessibilityNative.HasUsableFrame(element, 8, 8)
+                    && MacAccessibilityNative.IsElementCenterInside(element, window)
+                    && MacAccessibilityNative.IsNearWindowBottomComposer(element, window))
+                {
+                    candidates.Add(new ModeCandidate(
+                        new MacAxTarget(
+                            element,
+                            window,
+                            role,
+                            true,
+                            FirstText(title, description, help, value)),
+                        ModeCandidateKind.ComposerButton,
+                        300,
+                        null,
+                        composerMode,
+                        selected,
+                        enabled));
+                }
             }
         }
 
@@ -1061,7 +803,8 @@ internal static class CodexMacAccessibility
                 candidates,
                 currentComposerMode,
                 depth + 1,
-                budget));
+                budget,
+                stopwatch));
     }
 
     private static void TraverseComposerControlsReverse(
@@ -1070,14 +813,19 @@ internal static class CodexMacAccessibility
         ICollection<ModeCandidate> candidates,
         Boolean inComposerMode,
         Int32 depth,
-        ScanBudget budget)
+        ScanBudget budget,
+        Stopwatch stopwatch)
     {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        if (depth > MaximumDepth
+            || budget.NodesVisited >= MaximumNodesPerWindow
+            || stopwatch.Elapsed >= CommandTreeScanTimeout)
         {
+            budget.WasTruncated = true;
             return;
         }
 
         budget.NodesVisited++;
+        MacAccessibilityNative.SetMessagingTimeout(element, 0.12F);
         var role = MacAccessibilityNative.ReadString(element, "AXRole");
         var title = MacAccessibilityNative.ReadString(element, "AXTitle");
         var description = MacAccessibilityNative.ReadString(element, "AXDescription");
@@ -1085,14 +833,18 @@ internal static class CodexMacAccessibility
         var value = MacAccessibilityNative.ReadString(element, "AXValue");
         var labels = new[] { title, description, help, value };
         var currentComposerMode = inComposerMode
-            || (role == "AXGroup" && HasExactLabel(labels, "Composer mode"));
+            || (role == "AXGroup"
+                && MacDesktopCommandLocalization.IsComposerModeGroup(labels));
         var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
         var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
             && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
         var composerMode = currentComposerMode && visible
             ? ParseComposerButtonMode(role, labels)
             : null;
-        if (composerMode.HasValue)
+        if (composerMode.HasValue
+            && MacAccessibilityNative.HasUsableFrame(element, 8, 8)
+            && MacAccessibilityNative.IsElementCenterInside(element, window)
+            && MacAccessibilityNative.IsNearWindowBottomComposer(element, window))
         {
             var selected = MacAccessibilityNative.ReadInteger(element, "AXValue") == 1
                 || MacAccessibilityNative.ReadBoolean(element, "AXValue") == true
@@ -1121,7 +873,8 @@ internal static class CodexMacAccessibility
                 candidates,
                 currentComposerMode,
                 depth + 1,
-                budget));
+                budget,
+                stopwatch));
     }
 
     private static void TraverseProductMenusReverse(
@@ -1131,14 +884,19 @@ internal static class CodexMacAccessibility
         ICollection<ModeCandidate> candidates,
         Boolean inPopupMenu,
         Int32 depth,
-        ScanBudget budget)
+        ScanBudget budget,
+        Stopwatch stopwatch)
     {
-        if (depth > MaximumDepth || budget.NodesVisited >= MaximumNodesPerWindow)
+        if (depth > MaximumDepth
+            || budget.NodesVisited >= MaximumNodesPerWindow
+            || stopwatch.Elapsed >= CommandTreeScanTimeout)
         {
+            budget.WasTruncated = true;
             return;
         }
 
         budget.NodesVisited++;
+        MacAccessibilityNative.SetMessagingTimeout(element, 0.12F);
         var role = MacAccessibilityNative.ReadString(element, "AXRole");
         if (role == "AXMenuBar")
         {
@@ -1154,14 +912,18 @@ internal static class CodexMacAccessibility
         var enabled = MacAccessibilityNative.ReadBoolean(element, "AXEnabled") != false;
         var visible = MacAccessibilityNative.ReadBoolean(element, "AXVisible") != false
             && MacAccessibilityNative.ReadBoolean(element, "AXHidden") != true;
-        if (currentPopupMenu && enabled && visible)
+        if (currentPopupMenu
+            && enabled
+            && visible
+            && MacAccessibilityNative.IsOwnedByWindow(element, window))
         {
             var score = ProductItemScore(
                 element,
                 window,
                 requestedMode,
                 role,
-                labels);
+                labels,
+                stopwatch);
             if (score > 0)
             {
                 candidates.Add(new ModeCandidate(
@@ -1190,7 +952,8 @@ internal static class CodexMacAccessibility
                 candidates,
                 currentPopupMenu,
                 depth + 1,
-                budget));
+                budget,
+                stopwatch));
     }
 
     private static Int32 ProductTriggerScore(
@@ -1202,20 +965,18 @@ internal static class CodexMacAccessibility
     {
         productMode = null;
         if (role is not ("AXButton" or "AXMenuButton" or "AXPopUpButton")
+            || !MacAccessibilityNative.HasUsableFrame(element, 8, 8)
+            || !MacAccessibilityNative.IsElementCenterInside(element, window)
             || !MacAccessibilityNative.IsNearWindowTopLeft(element, window))
         {
             return 0;
         }
 
-        const String prefix = "Switch mode, current mode: ";
-        foreach (var label in labels.Select(value => value.Trim()))
+        if (MacDesktopCommandLocalization.TryParseProductModeTrigger(
+                labels,
+                out var modeName))
         {
-            if (!label.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            productMode = ParseProductModeName(label[prefix.Length..]);
+            productMode = ParseProductModeName(modeName);
             return productMode.HasValue ? 320 : 0;
         }
 
@@ -1227,23 +988,32 @@ internal static class CodexMacAccessibility
         IntPtr window,
         MacDesktopMode requestedMode,
         String role,
-        IEnumerable<String> labels)
+        IEnumerable<String> labels,
+        Stopwatch stopwatch)
     {
         if (role is not ("AXMenuItem" or "AXRadioButton")
+            || !MacAccessibilityNative.HasUsableFrame(element, 8, 8)
+            || !MacAccessibilityNative.IsElementCenterInside(element, window)
             || !MacAccessibilityNative.IsNearWindowTopLeft(element, window))
         {
             return 0;
         }
 
-        var targetLabels = requestedMode == MacDesktopMode.Codex
-            ? new[] { "Codex" }
-            : new[] { "ChatGPT", "ChatGPT Work" };
-        if (targetLabels.Any(label => HasExactLabel(labels, label)))
+        Func<IEnumerable<String>, Boolean> matchesProduct =
+            requestedMode == MacDesktopMode.Codex
+                ? MacDesktopCommandLocalization.HasCodexProductModeName
+                : MacDesktopCommandLocalization.HasChatProductModeName;
+        if (matchesProduct(labels))
         {
             return 300;
         }
 
-        return HasExactDescendantLabel(element, targetLabels, 3, 24)
+        return HasDescendantMatchingLabels(
+            element,
+            matchesProduct,
+            3,
+            24,
+            stopwatch)
             ? 280
             : 0;
     }
@@ -1257,28 +1027,26 @@ internal static class CodexMacAccessibility
             return null;
         }
 
-        if (HasExactLabel(labels, "Chat"))
+        if (MacDesktopCommandLocalization.IsChatComposerModeButton(labels))
         {
             return MacDesktopMode.ChatGPT;
         }
 
-        return HasExactLabel(labels, "Work")
+        return MacDesktopCommandLocalization.IsWorkComposerModeButton(labels)
             ? MacDesktopMode.Work
             : null;
     }
 
     private static MacProductMode? ParseProductModeName(String value)
     {
-        var normalized = value.Trim();
-        if (normalized.Equals("Codex", StringComparison.OrdinalIgnoreCase))
+        if (MacDesktopCommandLocalization.IsCodexProductModeName(value))
         {
             return MacProductMode.Codex;
         }
 
-        return normalized.Equals("ChatGPT", StringComparison.OrdinalIgnoreCase)
-            || normalized.Equals("ChatGPT Work", StringComparison.OrdinalIgnoreCase)
-                ? MacProductMode.ChatSurface
-                : null;
+        return MacDesktopCommandLocalization.IsChatProductModeName(value)
+            ? MacProductMode.ChatSurface
+            : null;
     }
 
     private static Boolean HasExactLabel(IEnumerable<String> values, String candidate)
@@ -1288,29 +1056,36 @@ internal static class CodexMacAccessibility
         IntPtr element,
         IReadOnlyCollection<String> candidates,
         Int32 maximumDepth,
-        Int32 maximumNodes)
+        Int32 maximumNodes,
+        Stopwatch stopwatch)
     {
         var visited = 0;
         return Find(element, 0);
 
         Boolean Find(IntPtr current, Int32 depth)
         {
-            if (depth >= maximumDepth || visited >= maximumNodes)
+            if (depth >= maximumDepth
+                || visited >= maximumNodes
+                || stopwatch.Elapsed >= CommandTreeScanTimeout)
             {
                 return false;
             }
 
+            MacAccessibilityNative.SetMessagingTimeout(current, 0.12F);
             var found = false;
             MacAccessibilityNative.ForEachElement(
                 current,
                 "AXChildren",
                 child =>
                 {
-                    if (found || visited++ >= maximumNodes)
+                    if (found
+                        || visited++ >= maximumNodes
+                        || stopwatch.Elapsed >= CommandTreeScanTimeout)
                     {
                         return;
                     }
 
+                    MacAccessibilityNative.SetMessagingTimeout(child, 0.12F);
                     var labels = new[]
                     {
                         MacAccessibilityNative.ReadString(child, "AXTitle"),
@@ -1320,6 +1095,53 @@ internal static class CodexMacAccessibility
                     };
                     found = candidates.Any(candidate => HasExactLabel(labels, candidate))
                         || Find(child, depth + 1);
+                });
+            return found;
+        }
+    }
+
+    private static Boolean HasDescendantMatchingLabels(
+        IntPtr element,
+        Func<IEnumerable<String>, Boolean> matches,
+        Int32 maximumDepth,
+        Int32 maximumNodes,
+        Stopwatch stopwatch)
+    {
+        var visited = 0;
+        return Find(element, 0);
+
+        Boolean Find(IntPtr current, Int32 depth)
+        {
+            if (depth >= maximumDepth
+                || visited >= maximumNodes
+                || stopwatch.Elapsed >= CommandTreeScanTimeout)
+            {
+                return false;
+            }
+
+            MacAccessibilityNative.SetMessagingTimeout(current, 0.12F);
+            var found = false;
+            MacAccessibilityNative.ForEachElement(
+                current,
+                "AXChildren",
+                child =>
+                {
+                    if (found
+                        || visited++ >= maximumNodes
+                        || stopwatch.Elapsed >= CommandTreeScanTimeout)
+                    {
+                        return;
+                    }
+
+                    MacAccessibilityNative.SetMessagingTimeout(child, 0.12F);
+                    var labels = new[]
+                    {
+                        MacAccessibilityNative.ReadString(child, "AXTitle"),
+                        MacAccessibilityNative.ReadString(child, "AXDescription"),
+                        MacAccessibilityNative.ReadString(child, "AXHelp"),
+                        MacAccessibilityNative.ReadString(child, "AXValue"),
+                    };
+                    found = matches(labels) || Find(child, depth + 1);
                 });
             return found;
         }
@@ -2089,28 +1911,6 @@ internal static class CodexMacAccessibility
         Int32 DocumentOrder);
 
     private sealed record ModelPickerCandidate(MacAxTarget Target, Int32 Score);
-
-    private sealed record ModeCommandCandidate(MacAxTarget Target, Int32 Score);
-
-    private sealed class ModeCommandSearchState
-    {
-        public Boolean FoundDialog { get; set; }
-    }
-
-    private sealed class ModeCommandScan : IDisposable
-    {
-        public ModeCommandScan(Boolean hasExactDialog, MacAxTarget? target)
-        {
-            this.HasExactDialog = hasExactDialog;
-            this.Target = target;
-        }
-
-        public Boolean HasExactDialog { get; }
-
-        public MacAxTarget? Target { get; }
-
-        public void Dispose() => this.Target?.Dispose();
-    }
 
     private enum ModeCandidateKind
     {

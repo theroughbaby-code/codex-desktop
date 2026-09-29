@@ -27,7 +27,7 @@
   { "className": "SwitchToCodexCommand", "displayName": "Switch to Codex", "shortcutText": "Alt+3", "groupName": "Navigation", "key": "Key3", "modifiers": ["Alt"], "macMode": "Codex" },
   { "className": "ToggleActivityViewCommand", "displayName": "Toggle activity view", "shortcutText": "Ctrl+Alt+U", "groupName": "Navigation", "key": "KeyU", "modifiers": ["Control", "Alt"] },
   { "className": "OpenBrowserTabCommand", "displayName": "Open browser tab", "shortcutText": "Ctrl+T", "groupName": "Panels", "key": "KeyT", "modifiers": ["Control"] },
-  { "className": "OpenReviewTabCommand", "displayName": "Open review tab", "shortcutText": "Ctrl+Shift+G", "groupName": "Panels", "key": "KeyG", "modifiers": ["Control", "Shift"], "macModifiers": ["Control", "Shift"] },
+  { "className": "OpenReviewTabCommand", "displayName": "Open review tab", "shortcutText": "Ctrl+Shift+G", "groupName": "Panels", "key": "KeyG", "modifiers": ["Control", "Shift"], "macModifiers": ["Control", "Shift"], "macCommand": "OpenReviewTab" },
   { "className": "ReopenClosedTabCommand", "displayName": "Reopen closed tab", "shortcutText": "Ctrl+Shift+T", "groupName": "Panels", "key": "KeyT", "modifiers": ["Control", "Shift"] },
   { "className": "ToggleBottomPanelCommand", "displayName": "Toggle bottom panel", "shortcutText": "Ctrl+J", "groupName": "Panels", "key": "KeyJ", "modifiers": ["Control"] },
   { "className": "ToggleBrowserPanelCommand", "displayName": "Toggle browser panel", "shortcutText": "Ctrl+Shift+B", "groupName": "Panels", "key": "KeyB", "modifiers": ["Control", "Shift"] },

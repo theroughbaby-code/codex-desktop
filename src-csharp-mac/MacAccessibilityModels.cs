@@ -67,19 +67,24 @@ internal sealed class MacAxTarget : IDisposable
 {
     private readonly MacAxElement element;
     private readonly MacAxElement window;
+    private readonly MacAxElement? boundsContainer;
 
     public MacAxTarget(
         IntPtr element,
         IntPtr window,
         String role,
         Boolean isFocusedWindow,
-        String label)
+        String label,
+        IntPtr boundsContainer = default)
         : this(
             MacAccessibilityNative.RetainElement(element),
             MacAccessibilityNative.RetainElement(window),
             role,
             isFocusedWindow,
-            label)
+            label,
+            boundsContainer == IntPtr.Zero
+                ? null
+                : MacAccessibilityNative.RetainElement(boundsContainer))
     {
     }
 
@@ -88,13 +93,15 @@ internal sealed class MacAxTarget : IDisposable
         MacAxElement window,
         String role,
         Boolean isFocusedWindow,
-        String label)
+        String label,
+        MacAxElement? boundsContainer)
     {
         this.element = element;
         this.window = window;
         this.Role = role;
         this.IsFocusedWindow = isFocusedWindow;
         this.Label = label;
+        this.boundsContainer = boundsContainer;
     }
 
     public String Role { get; }
@@ -109,7 +116,8 @@ internal sealed class MacAxTarget : IDisposable
             this.window.Clone(),
             this.Role,
             this.IsFocusedWindow,
-            this.Label);
+            this.Label,
+            this.boundsContainer?.Clone());
 
     public MacTargetAction TryPress()
     {
@@ -124,9 +132,10 @@ internal sealed class MacAxTarget : IDisposable
             return MacTargetAction.Unavailable;
         }
 
-        var actions = this.Role == "AXMenuItem"
-            ? new[] { "AXPick", "AXPress", "AXConfirm" }
-            : new[] { "AXPress", "AXConfirm", "AXPick" };
+        // AXPick is an obsolete selection action on macOS menu items. Electron
+        // advertises it alongside AXPress, but a successful AXPick can leave the
+        // command selected without executing it.
+        var actions = new[] { "AXPress", "AXConfirm", "AXPick" };
         foreach (var action in actions)
         {
             if (!this.IsCurrentTarget())
@@ -158,6 +167,22 @@ internal sealed class MacAxTarget : IDisposable
 
         return this.IsCurrentTarget()
             && MacAccessibilityNative.TryPerformAdvertisedAction(
+                this.element.Handle,
+                "AXPress")
+            ? MacTargetAction.Invoked
+            : MacTargetAction.Unavailable;
+    }
+
+    public MacTargetAction TryPressOnce()
+    {
+        if (!this.IsFocusedWindow)
+        {
+            this.ActivateWindow();
+            return MacTargetAction.Unavailable;
+        }
+
+        return this.IsCurrentTarget()
+            && MacAccessibilityNative.TryPerformAdvertisedActionOnce(
                 this.element.Handle,
                 "AXPress")
             ? MacTargetAction.Invoked
@@ -209,7 +234,7 @@ internal sealed class MacAxTarget : IDisposable
             return MacTargetAction.Unavailable;
         }
 
-        return this.IsCurrentTarget()
+        return this.HasUsableFrame()
             && MacAccessibilityNative.TryClickCenter(this.element.Handle)
             ? MacTargetAction.Clicked
             : MacTargetAction.Unavailable;
@@ -225,10 +250,35 @@ internal sealed class MacAxTarget : IDisposable
         return MacAccessibilityNative.TrySetTrue(this.element.Handle, "AXFocused");
     }
 
+    public Boolean HasUsableFrame()
+        => this.IsCurrentTarget()
+            && MacAccessibilityNative.HasUsableFrame(this.element.Handle)
+            && MacAccessibilityNative.IsElementCenterInside(
+                this.element.Handle,
+                this.window.Handle)
+            && (this.boundsContainer is null
+                || MacAccessibilityNative.IsElementCenterInside(
+                    this.element.Handle,
+                    this.boundsContainer.Handle));
+
+    public Boolean TryScrollToVisible()
+        => this.IsCurrentTarget()
+            && MacAccessibilityNative.TryPerformAdvertisedAction(
+                this.element.Handle,
+                "AXScrollToVisible");
+
+    public Boolean TrySetValue(String value)
+        => this.IsCurrentTarget()
+            && MacAccessibilityNative.TrySetString(
+                this.element.Handle,
+                "AXValue",
+                value);
+
     public void Dispose()
     {
         this.element.Dispose();
         this.window.Dispose();
+        this.boundsContainer?.Dispose();
     }
 
     private Boolean IsCurrentTarget()

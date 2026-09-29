@@ -96,12 +96,18 @@ function descriptionFor(action) {
 }
 
 function generatedClass(action, platform) {
-  const baseClass = platform === 'mac' && action.macMode
+  const usesMacMode = platform === 'mac' && action.macMode;
+  const usesMacCommand = platform === 'mac' && action.macCommand;
+  const baseClass = usesMacMode
     ? 'ModeSwitchCommandBase'
-    : 'ShortcutCommandBase';
-  const baseArguments = platform === 'mac' && action.macMode
+    : usesMacCommand
+      ? 'MacDesktopCommandBase'
+      : 'ShortcutCommandBase';
+  const baseArguments = usesMacMode
     ? `"${escapeCsharp(action.displayName)}", "${escapeCsharp(descriptionFor(action))}", "${escapeCsharp(action.groupName)}", MacDesktopMode.${action.macMode}`
-    : `"${escapeCsharp(action.displayName)}", "${escapeCsharp(descriptionFor(action))}", "${escapeCsharp(action.groupName)}", VirtualKeyCode.${action.key}, ${actionModifierExpression(action, platform)}`;
+    : usesMacCommand
+      ? `"${escapeCsharp(action.displayName)}", "${escapeCsharp(descriptionFor(action))}", "${escapeCsharp(action.groupName)}", MacDesktopCommand.${action.macCommand}`
+      : `"${escapeCsharp(action.displayName)}", "${escapeCsharp(descriptionFor(action))}", "${escapeCsharp(action.groupName)}", VirtualKeyCode.${action.key}, ${actionModifierExpression(action, platform)}`;
 
   return `public sealed class ${action.className} : ${baseClass}
 {

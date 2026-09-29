@@ -19,6 +19,9 @@ internal static class MacAccessibilityNative
     private const UInt32 CgEventLeftMouseDown = 1;
     private const UInt32 CgEventLeftMouseUp = 2;
     private const UInt32 CgMouseButtonLeft = 0;
+    internal const UInt64 CgEventFlagShift = 0x00020000;
+    internal const UInt64 CgEventFlagControl = 0x00040000;
+    internal const UInt64 CgEventFlagCommand = 0x00100000;
     private const Int32 AccessibilityProbeMaximumDepth = 12;
     private const Int32 AccessibilityProbeMaximumNodes = 128;
     private const Int32 AccessibilityProbeReadyNodeCount = 20;
@@ -265,6 +268,27 @@ internal static class MacAccessibilityNative
     public static Boolean IsSameElement(IntPtr left, IntPtr right)
         => left != IntPtr.Zero && right != IntPtr.Zero && CFEqual(left, right);
 
+    public static Boolean IsOwnedByWindow(IntPtr element, IntPtr expectedWindow)
+    {
+        foreach (var attribute in new[] { "AXWindow", "AXTopLevelUIElement" })
+        {
+            if (!TryCopyElement(element, attribute, out var owner) || owner is null)
+            {
+                continue;
+            }
+
+            using (owner)
+            {
+                if (IsSameElement(owner.Handle, expectedWindow))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public static Boolean IsFrontmostFocusedWindow(IntPtr element, IntPtr expectedWindow)
     {
         if (element == IntPtr.Zero
@@ -357,8 +381,125 @@ internal static class MacAccessibilityNative
         }
     }
 
+    public static Boolean TryPerformAdvertisedActionOnce(IntPtr element, String action)
+    {
+        if (!ReadActionNames(element).Contains(action))
+        {
+            return false;
+        }
+
+        try
+        {
+            var result = AXUIElementPerformAction(element, NativeString(action));
+            // CannotComplete can mean the target handled the action while it was
+            // in modal processing but did not answer before the AX timeout. Do
+            // not repeat a non-idempotent press; callers verify the end state.
+            return result is AxSuccess or AxCannotComplete;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static Boolean TrySetTrue(IntPtr element, String attribute)
         => SetTrue(element, attribute) == AxSuccess;
+
+    public static Boolean HasUsableFrame(
+        IntPtr element,
+        Double minimumWidth = 0,
+        Double minimumHeight = 0)
+        => TryReadPoint(element, "AXPosition", out var position)
+            && TryReadSize(element, "AXSize", out var size)
+            && IsFinite(position.X)
+            && IsFinite(position.Y)
+            && IsFinite(size.Width)
+            && IsFinite(size.Height)
+            && size.Width > minimumWidth
+            && size.Height > minimumHeight;
+
+    public static Boolean IsElementCenterInside(IntPtr element, IntPtr container)
+    {
+        if (!TryReadPoint(element, "AXPosition", out var elementPosition)
+            || !TryReadSize(element, "AXSize", out var elementSize)
+            || !TryReadPoint(container, "AXPosition", out var containerPosition)
+            || !TryReadSize(container, "AXSize", out var containerSize))
+        {
+            return false;
+        }
+
+        var centerX = elementPosition.X + (elementSize.Width / 2);
+        var centerY = elementPosition.Y + (elementSize.Height / 2);
+        return IsFinite(centerX)
+            && IsFinite(centerY)
+            && centerX >= containerPosition.X
+            && centerY >= containerPosition.Y
+            && centerX <= containerPosition.X + containerSize.Width
+            && centerY <= containerPosition.Y + containerSize.Height;
+    }
+
+    public static Boolean TrySetString(
+        IntPtr element,
+        String attribute,
+        String value)
+    {
+        try
+        {
+            var result = AXUIElementSetAttributeValue(
+                element,
+                NativeString(attribute),
+                NativeString(value));
+            return result == AxSuccess;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static void SetMessagingTimeout(IntPtr element, Single timeoutInSeconds)
+    {
+        try
+        {
+            _ = AXUIElementSetMessagingTimeout(element, timeoutInSeconds);
+        }
+        catch
+        {
+        }
+    }
+
+    public static Boolean TryPostKeyStroke(
+        Int32 processId,
+        UInt16 virtualKey,
+        UInt64 flags)
+    {
+        IntPtr keyDown = IntPtr.Zero;
+        IntPtr keyUp = IntPtr.Zero;
+        try
+        {
+            keyDown = CGEventCreateKeyboardEvent(IntPtr.Zero, virtualKey, true);
+            keyUp = CGEventCreateKeyboardEvent(IntPtr.Zero, virtualKey, false);
+            if (keyDown == IntPtr.Zero || keyUp == IntPtr.Zero)
+            {
+                return false;
+            }
+
+            CGEventSetFlags(keyDown, flags);
+            CGEventSetFlags(keyUp, flags);
+            CGEventPostToPid(processId, keyDown);
+            CGEventPostToPid(processId, keyUp);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            Release(keyUp);
+            Release(keyDown);
+        }
+    }
 
     public static Boolean TryClickCenter(IntPtr element)
     {
@@ -828,6 +969,7 @@ internal static class MacAccessibilityNative
             return;
         }
 
+        SetMessagingTimeout(element, 0.12F);
         probe.NodesVisited++;
         probe.MaximumDepth = Math.Max(probe.MaximumDepth, depth);
         var role = ReadString(element, "AXRole");
@@ -1120,6 +1262,18 @@ internal static class MacAccessibilityNative
         UInt32 mouseType,
         CgPoint mouseCursorPosition,
         UInt32 mouseButton);
+
+    [DllImport(ApplicationServices)]
+    private static extern IntPtr CGEventCreateKeyboardEvent(
+        IntPtr source,
+        UInt16 virtualKey,
+        [MarshalAs(UnmanagedType.I1)] Boolean keyDown);
+
+    [DllImport(ApplicationServices)]
+    private static extern void CGEventSetFlags(IntPtr eventReference, UInt64 flags);
+
+    [DllImport(ApplicationServices)]
+    private static extern void CGEventPostToPid(Int32 processId, IntPtr eventReference);
 
     [DllImport(ApplicationServices)]
     private static extern void CGEventPost(UInt32 tap, IntPtr eventReference);

@@ -38,19 +38,15 @@ public abstract class ModeSwitchCommandBase : PluginDynamicCommand
                     $"Mode switch action '{this.DisplayName}': {message}"));
         }
 
-        if (this.mode != MacDesktopMode.Codex
-            && attempt is (MacActionAttempt.NoTarget
+        if (attempt is (MacActionAttempt.NoTarget
                 or MacActionAttempt.ReadyForKeyboardFallback
                 or MacActionAttempt.Unavailable))
         {
             this.Log.Info(
                 $"Mode switch action '{this.DisplayName}' is opening the exact command-menu fallback.");
-            this.Plugin.ClientApplication.SendKeyboardShortcut(
-                VirtualKeyCode.KeyK,
-                ModifierKey.ControlOrCommand);
             attempt = CodexMacAccessibility.TryInvokeModeCommand(
                 this.mode,
-                TimeSpan.FromMilliseconds(2000));
+                TimeSpan.FromMilliseconds(2400));
             this.Log.Info(
                 $"Mode switch action '{this.DisplayName}' command-menu fallback completed with {attempt}.");
         }

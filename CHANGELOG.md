@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.19 - 2026-09-29 (release candidate)
+
+- Replaced the macOS Review and Terminal shortcut paths with exact native-menu and command-menu accessibility actions, including bounded scrolling and visible end-state verification.
+- Made Chat, Work, and Codex switching use the localized product switcher, composer controls, and exact command-menu entries instead of relying on configurable or disabled keyboard shortcuts.
+- Added localized command and mode labels from the current ChatGPT desktop release and bounded every Electron accessibility traversal so an unresponsive child cannot stall a Logitech action.
+- Kept Review verification valid while diffs are loading, empty, or unavailable, and kept Terminal open-only when its integrated panel is already visible.
+
 ## 1.1.18 - 2026-09-28 (release candidate)
 
 - Made the macOS plugin activate ChatGPT's web accessibility tree itself before scanning, so clean customer Macs do not depend on VoiceOver, Accessibility Inspector, or other developer tools having enabled it first.
